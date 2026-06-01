@@ -25,7 +25,10 @@
 **NOT VERIFIED:** qué queda pendiente de probar
 
 **DECISIONS:**
-- (1-2 frases, máx 3 bullets)
+- (1-2 frases, máx 3 bullets; las gordas van a `.arkmind/decisions/`)
+
+**OPEN QUESTIONS:** (preguntas que no bloquean pero conviene resolver)
+- … (o "ninguna")
 
 **HANDOFF:** (para la siguiente IA)
 - Qué necesita saber

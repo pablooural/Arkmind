@@ -86,8 +86,9 @@ en paralelo si están en archivos sin solape.
 ```
 Arkmind/
 ├── .arkmind/
-│   ├── STATE.json              ← estado actual (machine-readable)
+│   ├── STATE.json              ← estado actual (machine-readable, incluye openQuestions)
 │   ├── NO-GO-ZONES.md          ← zonas prohibidas
+│   ├── SUPOSICIONES.md         ← creencias estables del proyecto (A1, A2, ...)
 │   ├── CONVENTIONS.md          ← este archivo
 │   └── decisions/              ← ADRs (uno por decisión arquitectural gorda)
 │       └── NNNN-titulo.md
@@ -163,3 +164,14 @@ pequeñas viven en el DECISIONS de la entrada del PROGRESS.
 4. **El PROGRESS.md es append-only.** No borres entradas anteriores.
 5. **El STATE.json es la verdad consultable.** Si el markdown y el JSON discrepan, el JSON gana para decisiones de coordinación.
 6. **Si dudas, claim y pregunta.** Es mejor decir "estoy en ello, ¿alguien más está?" que chocar.
+
+## ❓ Sobre las "Preguntas Abiertas"
+
+`STATE.json` tiene un campo `openQuestions[]` para cosas que **no bloquean** el paso
+actual pero conviene resolver. Diferencia importante:
+
+- **Bloqueos (`blockedOn`)** → no puedes seguir sin resolverlos. Reclamar el paso o pedir ayuda.
+- **Problemas (`PROBLEMS / BLOCKERS` en PROGRESS)** → algo falló durante el trabajo.
+- **Preguntas abiertas (`openQuestions` en STATE)** → cuestiones que vemos a futuro y conviene no olvidar.
+
+Cuando una pregunta abierta se resuelva, se mueve a un ADR y se elimina del array.

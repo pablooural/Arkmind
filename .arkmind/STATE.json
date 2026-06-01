@@ -2,13 +2,39 @@
   "project": "Arkmind",
   "schemaVersion": 1,
   "currentStep": 2,
-  "totalSteps": 3,
+  "totalStep": 3,
   "stepTitle": "Implementar rollback() real en SnapshotManager",
   "status": "pending",
   "claimedBy": null,
   "claimedAt": null,
-  "lastUpdated": "2026-06-01T14:18:00Z",
+  "lastUpdated": "2026-06-01T14:55:00Z",
   "blockedOn": [],
+  "openQuestions": [
+    {
+      "id": "Q1",
+      "question": "¿Necesitamos versionado de snapshots?",
+      "raisedBy": "Mavis",
+      "raisedAt": "2026-06-01",
+      "context": "Si el schema del Snapshot o el formato de los archivos cambia entre versiones, los snapshots viejos quedarían ilegibles. ¿Metemos un campo `schemaVersion` y un migrador, o lo dejamos fuera hasta que duela?",
+      "status": "open"
+    },
+    {
+      "id": "Q2",
+      "question": "¿El AIProvider debe ser opcional o requerido en el runtime?",
+      "raisedBy": "Mavis",
+      "raisedAt": "2026-06-01",
+      "context": "Spec A4 dice que la IA es operativa pero propone. Pero el código actual tiene `ai.ts` y `auth.ts` con dependencias de Mistral/Supabase. ¿Romper esa dependencia ya (Paso 3) o dejarla como opcional enchufable?",
+      "status": "open"
+    },
+    {
+      "id": "Q3",
+      "question": "¿Cómo resolver sincronización entre dispositivos en el futuro?",
+      "raisedBy": "Mavis",
+      "raisedAt": "2026-06-01",
+      "context": "Si el estado vive en IndexedDB local, dos dispositivos del mismo usuario divergen. CRDTs, last-write-wins, sync por eventos del journal… Toca decidir antes de que haya datos que sincronizar.",
+      "status": "open"
+    }
+  ],
   "nextStep": {
     "id": 3,
     "title": "Resolver discrepancias spec/código (Supabase, Replit, IA como provider opcional)"
