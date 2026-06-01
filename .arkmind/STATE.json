@@ -1,0 +1,26 @@
+{
+  "project": "Arkmind",
+  "schemaVersion": 1,
+  "currentStep": 2,
+  "totalSteps": 3,
+  "stepTitle": "Implementar rollback() real en SnapshotManager",
+  "status": "pending",
+  "claimedBy": null,
+  "claimedAt": null,
+  "lastUpdated": "2026-06-01T14:18:00Z",
+  "blockedOn": [],
+  "nextStep": {
+    "id": 3,
+    "title": "Resolver discrepancias spec/código (Supabase, Replit, IA como provider opcional)"
+  },
+  "stepHistory": [
+    {
+      "id": 1,
+      "title": "Persistencia de snapshots con IndexedDB",
+      "status": "done",
+      "by": "Mavis",
+      "completedAt": "2026-06-01T13:55:00Z",
+      "summary": "SnapshotStore (IndexedDB) + SnapshotManager refactorizado + hidratacion lazy. Typecheck verde."
+    }
+  ]
+}
