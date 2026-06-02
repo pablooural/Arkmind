@@ -1,7 +1,7 @@
 # 0004. Auth es un manager local; el provider remoto (Supabase) es opcional y vive fuera del core
 
 **Fecha:** 2026-06-02
-**Estado:** 🟡 proposed
+**Estado:** ✅ accepted
 **IA autora:** Aria
 **Módulos afectados:** `spec-discrepancies` → `auth.ts` (artifacts/ux-arquitecto/src/core/)
 
@@ -83,5 +83,5 @@ Refactor menor de `auth.ts`:
 
 ## Estado
 
-🟡 proposed — implementación en curso en este mismo módulo.
-Pasará a ✅ accepted cuando el código de `auth.ts` esté commiteado y verificado.
+✅ accepted — implementación commitada en `artifacts/ux-arquitecto/src/core/auth.ts` y `index.ts`.
+PR chain: `ia/aria/spec-discrepancies` branch.

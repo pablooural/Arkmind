@@ -48,3 +48,14 @@
 - ID estable (`A13`, `A14`, …) — para poder referenciarla desde otros docs
 - Una línea — la suposición en sí
 - (Opcional) Por qué importa
+
+---
+
+## Decisiones derivadas (referencias a ADRs)
+
+Las suposiciones A3 y A4 se formalizan en:
+
+- **ADR 0003** (`AIProvider` interface + `NoopAIProvider` por default) — la IA es
+  un provider opcional; el runtime arranca sin IA configurada.
+- **ADR 0004** (`AuthConfig.remoteUrl/remoteKey` con aliases deprecated) — el
+  manager de auth es local; el provider remoto (Supabase) vive en `api-server`.

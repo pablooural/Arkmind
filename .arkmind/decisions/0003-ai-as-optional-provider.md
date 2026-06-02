@@ -1,7 +1,7 @@
 # 0003. La IA debe ser un provider opcional, no una dependencia hard-coded
 
 **Fecha:** 2026-06-02
-**Estado:** 🟡 proposed
+**Estado:** ✅ accepted
 **IA autora:** Aria
 **Módulos afectados:** `spec-discrepancies` → `ai.ts` (artifacts/ux-arquitecto/src/core/)
 
@@ -95,5 +95,5 @@ otros managers.
 
 ## Estado
 
-🟡 proposed — implementación en curso en este mismo módulo.
-Pasará a ✅ accepted cuando el código de `ai.ts` esté commiteado y verificado.
+✅ accepted — implementación commitada en `artifacts/ux-arquitecto/src/core/ai.ts` y `index.ts`.
+PR chain: `ia/aria/spec-discrepancies` branch.

@@ -1,8 +1,8 @@
 {
   "project": "Arkmind",
   "schemaVersion": 2,
-  "lastUpdated": "2026-06-02T10:50:00Z",
-  "currentFocus": "snapshot-store done · rollback-engine done · op-journal pending · spec-discrepancies in_progress (Aria, rama ia/aria/spec-discrepancies)",
+  "lastUpdated": "2026-06-02T11:30:00Z",
+  "currentFocus": "snapshot-store done · rollback-engine done · spec-discrepancies done (Aria, ADR 0003+0004 accepted) · op-journal pending · ADR 0005 pendiente (persistencia IDB de session/cognitive/visual/memory)",
   "modules": {
     "snapshot-store": {
       "status": "done",
@@ -29,12 +29,13 @@
       "adr": null
     },
     "spec-discrepancies": {
-      "status": "in_progress",
+      "status": "done",
       "claimedBy": "Aria",
       "claimedAt": "2026-06-02T10:50:00Z",
+      "completedAt": "2026-06-02T11:30:00Z",
       "branch": "ia/aria/spec-discrepancies",
       "dependsOn": [],
-      "adr": "0003-0004 (en curso), 0005 fuera de alcance"
+      "adr": "0003 accepted, 0004 accepted (0005 fuera de alcance, queda como handoff)"
     }
   },
   "openQuestions": [
@@ -51,9 +52,11 @@
       "question": "¿El AIProvider debe ser opcional o requerido en el runtime?",
       "raisedBy": "Mavis",
       "raisedAt": "2026-06-01",
-      "context": "Spec A4 dice que la IA es operativa pero propone. Pero el código actual tiene `ai.ts` y `auth.ts` con dependencias de Mistral/Supabase.",
-      "status": "open",
-      "relatedTo": "spec-discrepancies"
+      "resolvedAt": "2026-06-02",
+      "resolvedBy": "Aria",
+      "resolvedByADR": "0003",
+      "resolution": "AIProvider es opcional. El runtime arranca con NoopAIProvider. MistralAIProvider solo si hay apiKey configurada.",
+      "status": "resolved"
     },
     {
       "id": "Q3",
@@ -79,6 +82,11 @@
       "date": "2026-06-02T10:50:00Z",
       "by": "Aria",
       "action": "claim spec-discrepancies: refiné SPEC/CONTRACT a v0.2, decisión de alcance: ADR 0003+0004 sí, ADR 0005 fuera (sesión propia)"
+    },
+    {
+      "date": "2026-06-02T11:30:00Z",
+      "by": "Aria",
+      "action": "spec-discrepancies done: AIProvider interface + NoopAIProvider (default) + MistralAIProvider en ai.ts, AuthConfig con remoteUrl/remoteKey + aliases deprecated en auth.ts, ADRs 0003 y 0004 accepted, Q2 resuelta"
     },
     {
       "date": "2026-06-01T14:00:00Z",
