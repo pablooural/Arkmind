@@ -12,12 +12,13 @@
       "adr": "0001"
     },
     "rollback-engine": {
-      "status": "in_progress",
+      "status": "done",
       "claimedBy": "Mavis@cloud",
       "claimedAt": "2026-06-02T11:52:00Z",
+      "completedAt": "2026-06-02T12:05:00Z",
       "branch": "ia/mavis-cloud/rollback-engine",
       "dependsOn": ["snapshot-store"],
-      "adr": "0002 (proposed, will be accepted on close)"
+      "adr": "0002 (accepted)"
     },
     "op-journal": {
       "status": "pending",
@@ -68,6 +69,11 @@
       "date": "2026-06-02T10:35:00Z",
       "by": "Mavis",
       "action": "Reorganización: introducido modelo de módulos + AXIOMS.md + ADRs 0001-0002"
+    },
+    {
+      "date": "2026-06-02T12:05:00Z",
+      "by": "Mavis@cloud",
+      "action": "rollback-engine done: rollback() con RollbackResult, verifyRestoration(), ADR 0002 accepted, transactions.ts caller actualizado, types.ts extendido con 'rollback_failed'"
     },
     {
       "date": "2026-06-01T14:00:00Z",

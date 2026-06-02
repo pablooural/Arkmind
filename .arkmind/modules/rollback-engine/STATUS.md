@@ -1,13 +1,13 @@
 # Status: rollback-engine
 
-## Estado: 🔵 in_progress
+## Estado: ✅ done
 
 | Campo | Valor |
 |---|---|
 | IA asignada | Mavis@cloud |
 | Rama | ia/mavis-cloud/rollback-engine |
-| Último update | 2026-06-02T11:52:00Z |
-| ADR relacionado | 0002 (a aceptar al cerrar el módulo) |
+| Último update | 2026-06-02T12:05:00Z |
+| ADR relacionado | 0002 (accepted) |
 
 ---
 
@@ -33,11 +33,33 @@
 
 ## Handoff notes
 
-*(complete when closing)*
+### What was left unverified
+- `pnpm install` end-to-end no corrió (mismo timeout que la sesión de snapshot-store).
+- Sin tests automatizados — la verificación fue por typecheck parcial + grep cruzado.
+- Runtime real en browser (no testeable desde el sandbox).
+- Safari/Firefox no verificados (idem sesión anterior).
 
-- What was left unverified:
-- Decisions made during implementation:
-- Things the next IA should know:
+### Decisions made during implementation
+- **`RollbackResult` y `RollbackFailure` viven en `types.ts`** desde el inicio, no
+  se definieron localmente en `snapshots.ts` con TODO temporal. El ADR 0002
+  estaba lo suficientemente maduro como para saltar ese paso intermedio.
+- **No se exportó `verifyRestoration` desde `index.ts`**: queda como método
+  público de `SnapshotManager` (accesible vía `coreEngine.snapshots.verifyRestoration(...)`).
+  No hace falta re-export porque `index.ts` ya re-exporta `SnapshotManager`.
+- **El snapshot vacío es éxito, no fallo**: el SPEC lo dice literal y se respetó.
+  Devuelve `{ success: true, restoredFiles: [], snapshotId }` sin escribir nada.
+
+### Things the next IA should know
+- El contrato de `rollback()` cambió de `Promise<boolean>` a `Promise<RollbackResult>`.
+  Cualquier código que lo consuma debe leer `.success` (no tratar el valor
+  como boolean). Hice grep en `artifacts/ux-arquitecto/src/` y no hay otros
+  callers, pero ojo si en el futuro `mockup-sandbox` o `api-server` lo invocan.
+- `Transaction.status = "rollback_failed"` es nuevo. La UI (si existe)
+  debería contemplarlo. Si no lo hace, mostrará el valor literal del enum.
+- `snapshotStore.getSnapshotFileContents(id)` se carga por completo en memoria
+  como `Map<string, string>`. Para snapshots enormes (cientos de MB) esto puede
+  ser un problema — Q1 (versionado) en STATE.json sigue abierta, y podríamos
+  reconsiderar carga streaming cuando se implemente.
 
 ---
 
@@ -47,3 +69,4 @@
 |---|---|---|---|
 | 2026-06-01 | Claude | Creación del spec | Módulo definido, pendiente de implementación |
 | 2026-06-02 | Mavis | Refinamiento del SPEC | Añadida discrepancia `Transaction.status`, clarificados invariantes y errores |
+| 2026-06-02 | Mavis@cloud | Implementación | `rollback()` con `RollbackResult`, `verifyRestoration()`, ADR 0002 aceptado, `transactions.ts` actualizado, `types.ts` extendido |
