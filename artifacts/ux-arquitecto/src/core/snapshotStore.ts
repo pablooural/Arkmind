@@ -20,9 +20,10 @@
  */
 
 const DB_NAME = "arkmind_runtime";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_SNAPSHOTS = "snapshots";
 const STORE_FILES = "snapshot_files";
+const STORE_JOURNAL = "journal";
 
 // ─── Tipos del store (internos) ──────────────────────────────────────────────
 
@@ -121,6 +122,13 @@ export class SnapshotStore {
         if (!db.objectStoreNames.contains(STORE_FILES)) {
           const fileStore = db.createObjectStore(STORE_FILES, { keyPath: "id" });
           fileStore.createIndex("snapshotId", "snapshotId", { unique: false });
+        }
+
+        if (!db.objectStoreNames.contains(STORE_JOURNAL)) {
+          const journalStore = db.createObjectStore(STORE_JOURNAL, { keyPath: "id" });
+          journalStore.createIndex("contextPath", "contextPath", { unique: false });
+          journalStore.createIndex("timestamp", "timestamp", { unique: false });
+          journalStore.createIndex("transactionId", "transactionId", { unique: false });
         }
       };
 
@@ -249,10 +257,20 @@ export class SnapshotStore {
   /** Vacía por completo la base (para reset en tests o por el usuario). */
   async clear(): Promise<void> {
     const db = await this.getDB();
-    const tx = db.transaction([STORE_SNAPSHOTS, STORE_FILES], "readwrite");
+    const tx = db.transaction([STORE_SNAPSHOTS, STORE_FILES, STORE_JOURNAL], "readwrite");
     tx.objectStore(STORE_SNAPSHOTS).clear();
     tx.objectStore(STORE_FILES).clear();
+    if (db.objectStoreNames.contains(STORE_JOURNAL)) {
+      tx.objectStore(STORE_JOURNAL).clear();
+    }
     await txToPromise(tx);
+  }
+
+  /** Acceso al object store del journal (para uso interno de OpJournalManager). */
+  async getJournalStore(mode: IDBTransactionMode = "readonly") {
+    const db = await this.getDB();
+    const tx = db.transaction([STORE_JOURNAL], mode);
+    return { tx, store: tx.objectStore(STORE_JOURNAL) };
   }
 
   // ── Estadísticas ─────────────────────────────────────────────────────────

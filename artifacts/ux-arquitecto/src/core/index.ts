@@ -15,6 +15,7 @@ export * from "./types";
 export { snapshotManager, SnapshotManager } from "./snapshots";
 export { snapshotStore, SnapshotStore } from "./snapshotStore";
 export type { SnapshotRecord, SnapshotFileRecord, SnapshotFileInput } from "./snapshotStore";
+export { opJournal, OpJournalManager } from "./opJournal";
 export { transactionManager, TransactionManager } from "./transactions";
 export { workspaceManager, WorkspaceManager } from "./workspace";
 export { filesystemManager, FilesystemManager } from "./filesystem";
@@ -42,10 +43,12 @@ import { visualManager } from "./visual";
 import { aiManager } from "./ai";
 import { authManager } from "./auth";
 import { memoryManager } from "./memory";
+import { opJournal } from "./opJournal";
 
 export const coreEngine = {
   snapshots: snapshotManager,
   transactions: transactionManager,
+  journal: opJournal,
   workspace: workspaceManager,
   filesystem: filesystemManager,
   sessions: sessionManager,

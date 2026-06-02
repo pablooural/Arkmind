@@ -234,6 +234,33 @@ export interface Transaction {
   executedAt?: number;
 }
 
+// ─── Operation Journal ────────────────────────────────────────────────────────
+
+export interface JournalEntry {
+  id: string;
+  timestamp: number;
+  contextPath: string;
+  type: "transaction" | "rollback" | "system";
+  action: string;
+  status: "success" | "error" | "partial";
+  transactionId?: string;
+  snapshotId?: string;
+  details: {
+    targetPath?: string;
+    description?: string;
+    error?: string;
+    result?: any;
+  };
+}
+
+export interface JournalFilter {
+  contextPath?: string;
+  type?: "transaction" | "rollback" | "system";
+  since?: number;
+  until?: number;
+  limit?: number;
+}
+
 // ─── Rollback Result (rollback-engine) ───────────────────────────────────────
 
 /** Razón por la que un archivo falló al restaurar desde snapshot. */
