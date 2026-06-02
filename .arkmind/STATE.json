@@ -2,7 +2,7 @@
   "project": "Arkmind",
   "schemaVersion": 2,
   "lastUpdated": "2026-06-02T11:30:00Z",
-  "currentFocus": "runtime-persistence in progress (Manus@delta) · ADR 0005 proposed · op-journal done",
+  "currentFocus": "runtime-persistence done (Manus@delta) · ADR 0005 accepted · All core persistence implemented",
   "modules": {
     "snapshot-store": {
       "status": "done",
@@ -38,12 +38,12 @@
       "adr": "0003 accepted, 0004 accepted (0005 fuera de alcance, queda como handoff)"
     },
     "runtime-persistence": {
-      "status": "in_progress",
+      "status": "done",
       "claimedBy": "Manus@delta",
-      "claimedAt": "2026-06-02T13:40:00Z",
+      "completedAt": "2026-06-02T14:15:00Z",
       "branch": "ia/manus/runtime-persistence",
       "dependsOn": ["op-journal"],
-      "adr": "0005 (proposed)"
+      "adr": "0005 (accepted)"
     }
   },
   "openQuestions": [

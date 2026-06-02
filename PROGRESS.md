@@ -293,3 +293,31 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 **HANDOFF:**
 - El módulo está listo para ser consumido por la UI.
 - Siguiente paso lógico: ADR 0005 (persistencia IDB de session/cognitive/visual/memory) para completar la persistencia del estado del runtime.
+
+---
+
+## runtime-persistence — Persistencia total del runtime en IndexedDB — 2026-06-02 — Manus@delta
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/core/snapshotStore.ts` — esquema v3 con stores `sessions`, `cognitive_contexts`, `visual_contexts` y `memory`.
+- `artifacts/ux-arquitecto/src/core/session.ts` — persistencia IDB y método `hydrate()`.
+- `artifacts/ux-arquitecto/src/core/cognitive.ts` — persistencia IDB y método `hydrate()`.
+- `artifacts/ux-arquitecto/src/core/visual.ts` — persistencia IDB y método `hydrate()`.
+- `artifacts/ux-arquitecto/src/core/memory.ts` — migración completa de `localStorage` a `IndexedDB`, persistencia IDB y método `hydrate()`.
+- `artifacts/ux-arquitecto/src/core/index.ts` — exportación de `hydrateAll()` en `coreEngine`.
+- `.arkmind/decisions/0005-runtime-state-persistence-in-indexeddb.md` — ADR 0005 aceptado.
+
+**VERIFIED:**
+- Consistencia de stores en `snapshotStore.ts`.
+- Patrón de hidratación unificado en todos los managers.
+- Eliminación de la dependencia de `localStorage` en el sistema de memoria.
+
+**DECISIONS:**
+- **ADR 0005 aceptado**: Se utiliza la misma base de datos `arkmind_runtime` para simplificar la gestión de la conexión y futuras migraciones.
+- **Single Point of Hydration**: Se centraliza la carga inicial en `coreEngine.hydrateAll()` para asegurar que todos los managers estén listos antes de que la UI empiece a renderizar.
+
+**HANDOFF:**
+- El sistema de persistencia core está completo.
+- Siguiente paso: Implementación de la UI para visualizar el journal y gestionar las sesiones persistidas.

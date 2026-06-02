@@ -57,4 +57,16 @@ export const coreEngine = {
   ai: aiManager,
   auth: authManager,
   memory: memoryManager,
+
+  /**
+   * Hidratar todos los managers desde persistencia (IDB)
+   */
+  async hydrateAll(): Promise<void> {
+    await Promise.all([
+      sessionManager.hydrate(),
+      cognitiveManager.hydrate(),
+      visualManager.hydrate(),
+      memoryManager.hydrate(),
+    ]);
+  },
 };

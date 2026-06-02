@@ -14,7 +14,7 @@
 | `snapshot-store` | ✅ done | Mavis | — | 0001 |
 | `rollback-engine` | ✅ done | Mavis@cloud | `snapshot-store` | 0002 (accepted) |
 | `op-journal` | ✅ done | Manus@delta | `rollback-engine` | 0006 |
-| `runtime-persistence` | 🔵 in_progress | Manus@delta | `op-journal` | 0005 (proposed) |
+| `runtime-persistence` | ✅ done | Manus@delta | `op-journal` | 0005 |
 | `spec-discrepancies` | ✅ done | Aria | — | 0003-0004 (accepted); 0005 fuera de alcance |
 
 ### Leyenda

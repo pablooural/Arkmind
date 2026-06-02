@@ -20,10 +20,14 @@
  */
 
 const DB_NAME = "arkmind_runtime";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_SNAPSHOTS = "snapshots";
 const STORE_FILES = "snapshot_files";
 const STORE_JOURNAL = "journal";
+const STORE_SESSIONS = "sessions";
+const STORE_COGNITIVE = "cognitive_contexts";
+const STORE_VISUAL = "visual_contexts";
+const STORE_MEMORY = "memory";
 
 // ─── Tipos del store (internos) ──────────────────────────────────────────────
 
@@ -129,6 +133,19 @@ export class SnapshotStore {
           journalStore.createIndex("contextPath", "contextPath", { unique: false });
           journalStore.createIndex("timestamp", "timestamp", { unique: false });
           journalStore.createIndex("transactionId", "transactionId", { unique: false });
+        }
+
+        if (!db.objectStoreNames.contains(STORE_SESSIONS)) {
+          db.createObjectStore(STORE_SESSIONS, { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains(STORE_COGNITIVE)) {
+          db.createObjectStore(STORE_COGNITIVE, { keyPath: "contextPath" });
+        }
+        if (!db.objectStoreNames.contains(STORE_VISUAL)) {
+          db.createObjectStore(STORE_VISUAL, { keyPath: "panelId" });
+        }
+        if (!db.objectStoreNames.contains(STORE_MEMORY)) {
+          db.createObjectStore(STORE_MEMORY, { keyPath: "id" });
         }
       };
 
@@ -271,6 +288,13 @@ export class SnapshotStore {
     const db = await this.getDB();
     const tx = db.transaction([STORE_JOURNAL], mode);
     return { tx, store: tx.objectStore(STORE_JOURNAL) };
+  }
+
+  /** Acceso genérico a stores del runtime (para managers). */
+  async getRuntimeStore(storeName: string, mode: IDBTransactionMode = "readonly") {
+    const db = await this.getDB();
+    const tx = db.transaction([storeName], mode);
+    return { tx, store: tx.objectStore(storeName) };
   }
 
   // ── Estadísticas ─────────────────────────────────────────────────────────

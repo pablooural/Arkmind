@@ -36,6 +36,7 @@ export class VisualContextManager {
     if (!context) return false;
     Object.assign(context.persistent, updates);
     context.transient.lastInteraction = Date.now();
+    this.persist(context);
     return true;
   }
 
@@ -44,6 +45,7 @@ export class VisualContextManager {
     if (!context) return false;
     Object.assign(context.transient, updates);
     context.transient.lastInteraction = Date.now();
+    this.persist(context);
     return true;
   }
 
@@ -56,6 +58,7 @@ export class VisualContextManager {
     }
     context.persistent.activeResource = resourcePath;
     context.transient.lastInteraction = Date.now();
+    this.persist(context);
     return true;
   }
 
@@ -72,6 +75,7 @@ export class VisualContextManager {
       context.persistent.activeResource = context.persistent.openResources[0];
     }
     context.transient.lastInteraction = Date.now();
+    this.persist(context);
     return true;
   }
 
@@ -84,6 +88,7 @@ export class VisualContextManager {
     }
     context.persistent.activeResource = resourcePath;
     context.transient.lastInteraction = Date.now();
+    this.persist(context);
     return true;
   }
 
@@ -92,6 +97,7 @@ export class VisualContextManager {
     if (!context) return false;
     context.persistent.viewMode = mode;
     context.transient.lastInteraction = Date.now();
+    this.persist(context);
     return true;
   }
 
@@ -100,6 +106,7 @@ export class VisualContextManager {
     if (!context) return false;
     context.transient.scrollPosition = { x, y };
     context.transient.lastInteraction = Date.now();
+    this.persist(context);
     return true;
   }
 
@@ -108,6 +115,7 @@ export class VisualContextManager {
     if (!context) return false;
     context.transient.selection = { resource, startLine, endLine };
     context.transient.lastInteraction = Date.now();
+    this.persist(context);
     return true;
   }
 
@@ -124,6 +132,7 @@ export class VisualContextManager {
     if (!context) return false;
     context.persistent = { ...state };
     context.transient.lastInteraction = Date.now();
+    this.persist(context);
     return true;
   }
 
