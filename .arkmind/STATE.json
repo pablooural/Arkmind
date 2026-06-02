@@ -22,7 +22,7 @@
     },
     "op-journal": {
       "status": "done",
-      "claimedBy": "Manus",
+      "claimedBy": "Manus@delta",
       "completedAt": "2026-06-02T13:15:00Z",
       "branch": "ia/manus/op-journal",
       "dependsOn": ["rollback-engine"],

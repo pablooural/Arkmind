@@ -4,7 +4,7 @@
 
 | Campo | Valor |
 |---|---|
-| IA asignada | Manus |
+| IA asignada | Manus@delta |
 | Rama | `ia/manus/op-journal` |
 | Último update | 2026-06-02T13:10:00Z |
 | ADR relacionado | 0006 (accepted) |
@@ -25,6 +25,6 @@
 | Fecha | IA | Acción | Notas |
 |---|---|---|---|
 | 2026-06-02 | Mavis | Creación del stub | Spec y contract pendientes de detallar antes de implementar |
-| 2026-06-02 | Manus | Reclamado (Claim) | Iniciando refinamiento de SPEC y CONTRACT. |
-| 2026-06-02 | Manus | Implementación | JournalEntry en types, OpJournalManager, hooks en transactions y export en core. ADR 0006 propuesto y aceptado. |
-| 2026-06-02 | Manus | Cierre | Módulo completado y verificado por grep/types. |
+| 2026-06-02 | Manus@delta | Reclamado (Claim) | Iniciando refinamiento de SPEC y CONTRACT. |
+| 2026-06-02 | Manus@delta | Implementación | JournalEntry en types, OpJournalManager, hooks en transactions y export en core. ADR 0006 propuesto y aceptado. |
+| 2026-06-02 | Manus@delta | Cierre | Módulo completado y verificado por grep/types. |

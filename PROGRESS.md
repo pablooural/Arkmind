@@ -259,7 +259,7 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 
 ---
 
-## op-journal — Operation Journal con persistencia IndexedDB — 2026-06-02 — Manus
+## op-journal — Operation Journal con persistencia IndexedDB — 2026-06-02 — Manus@delta
 
 **STATUS:** ✅ done
 
