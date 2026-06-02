@@ -3,18 +3,17 @@
 > **Para todas las IAs que colaboran en este proyecto.**
 >
 > **Reglas básicas:**
-> 1. Antes de empezar un paso: lee `.arkmind/STATE.json`, `.arkmind/NO-GO-ZONES.md`,
->    `.arkmind/CONVENTIONS.md` y la entrada anterior de este archivo.
-> 2. Sigue el protocolo claim/release (ver CONVENTIONS.md).
+> 1. Antes de empezar un módulo: lee `.arkmind/AXIOMS.md` §I (orden de lectura)
+> 2. Sigue el protocolo claim/release (ver `.arkmind/CONVENTIONS.md`)
 > 3. **Append-only.** No borres entradas anteriores.
 > 4. Si dudas, pregunta al usuario antes de tocar nada.
 
 ---
 
-## 📋 Plantilla slim (copiar al final cuando cierres un paso)
+## 📋 Plantilla slim (copiar al cerrar un módulo)
 
 ```markdown
-## Paso N — <título corto> — <fecha> — <IA>
+## <module> — <título corto> — <fecha> — <IA>
 
 **STATUS:** ✅ done | ⚠️ partial | ❌ blocked
 
@@ -40,61 +39,114 @@
 
 ---
 
-# 🗂️ Log de pasos
+# 🗂️ Log de módulos
 
 ---
 
-### 🔒 CLAIMED — Paso 1 — Persistencia de snapshots con IndexedDB — Mavis — 2026-06-01T13:30:00Z
-### 🔓 RELEASED — Paso 1 — 2026-06-01T13:55:00Z
-
----
-
-## Paso 1 — Persistencia de snapshots con IndexedDB — 2026-06-01 — Mavis
+## snapshot-store — Persistencia de snapshots con IndexedDB — 2026-06-01 — Mavis
 
 **STATUS:** ✅ done
 
 **TOUCHED:**
-- `artifacts/ux-arquitecto/src/core/snapshotStore.ts` *(nuevo)* — clase `SnapshotStore` con DB `arkmind_runtime` v1, dos object stores, transacciones atómicas
+- `artifacts/ux-arquitecto/src/core/snapshotStore.ts` *(nuevo)* — `SnapshotStore` con DB `arkmind_runtime` v1, dos object stores, tx atómicas
 - `artifacts/ux-arquitecto/src/core/snapshots.ts` — refactor: `createSnapshot(paths: string[], …)`, `hydrate()` lazy, persistencia real en IDB
 - `artifacts/ux-arquitecto/src/core/index.ts` — exporta `snapshotStore` + tipos
-- `PROGRESS.md` *(nuevo)* — log de sesión
-- `.arkmind/` *(nuevo en este cierre)* — sistema de coordinación (STATE, NO-GO-ZONES, CONVENTIONS, decisions/)
 
 **VERIFIED:**
 - `tsc --noEmit` sobre los archivos modificados → 0 errores
 - API pública estable para callers existentes (`transactions.ts` no necesitó cambios)
-- `snapshotStore` funcional aislado (DB se abre, object stores se crean, save/list/delete round-trip)
+- `snapshotStore` funcional aislado (DB abre, object stores se crean, save/list/delete round-trip)
 
 **NOT VERIFIED:**
-- No se pudo correr `pnpm install` completo (timeout 5min) → typecheck end-to-end pendiente
-- Sin tests automatizados — el repo no tiene setup todavía
-- No probado en Safari/Firefox (sólo se verificó la rama del código, no el runtime en browser)
-- El `rollback()` sigue siendo stub (decisión consciente, va en Paso 2)
+- `pnpm install` completo (timeout 5 min) → typecheck end-to-end pendiente
+- Sin tests automatizados
+- No probado en Safari/Firefox runtime
+- `rollback()` sigue siendo stub (cubierto por módulo `rollback-engine`)
 
 **DECISIONS:**
-- **IndexedDB en vez de FS del usuario** — invisible, sobrevive a cierre de sesión, alineado con spec punto 11. Detalle en ADR `0001-snapshot-storage-indexeddb.md`.
-- **Blobs nativos (no strings)** — más eficiente en espacio y memoria.
-- **Caché en memoria + IDB** — el `SnapshotManager` mantiene un `Map` espejo para lecturas rápidas; el store es la fuente de verdad.
+- IDB en vez de FS del usuario — invisible, sobrevive a cierre de sesión, alineado con spec. ADR `0001`.
+- Blobs nativos (no strings) — más eficiente.
+- Caché en memoria + IDB — el store es source of truth, el Map es para velocidad.
+
+**OPEN QUESTIONS:**
+- Q1 (versionado de snapshots) — sigue abierta, no bloqueante.
 
 **HANDOFF:**
-- El siguiente paso es **Paso 2: implementar `rollback()` real en `snapshots.ts`**.
-- Estructura lista: `loadSnapshotFiles(snapshotId)` ya devuelve `Map<path, string>` desde IDB. Solo falta escribir a FS vía `webFilesystemProvider.writeFile` + validar post-condición.
-- Ver `.arkmind/NO-GO-ZONES.md` antes de tocar — `types.ts` es sagrado.
-- Ver `.arkmind/CONVENTIONS.md` para el flujo claim/release al empezar.
+- Siguiente módulo: `rollback-engine` (estado pending, sin reclamar).
+- `loadSnapshotFiles(snapshotId)` ya devuelve `Map<path, string>` listo para restaurar.
+- Antes de implementar, leer `rollback-engine/CONTRACT.md` (especialmente la discrepancia con `transactions.ts` documentada en el SPEC y en ADR 0002).
+- Ver `.arkmind/NO-GO-ZONES.md` y `.arkmind/AXIOMS.md`.
 
 **PROBLEMS / BLOCKERS:**
-- `pnpm install` no completó (no bloqueante — la próxima IA puede reintentar con más tiempo o usar un caché preexistente).
+- `pnpm install` no completó (no bloqueante — se puede reintentar con más tiempo o caché preexistente).
 
 ---
 
-### 🚧 ESTADO ACTUAL — Paso 2 disponible, sin reclamar — 2026-06-01T14:20:00Z
+## reorganization — Modelo de módulos + AXIOMS + jerarquía de verdad — 2026-06-02 — Mavis
 
-**Paso 2 — Implementar rollback() real en SnapshotManager**
-- Estado: `pending` (ver `.arkmind/STATE.json`)
-- Reclamado por: nadie
-- Quiere: leer `Map<path, string>` desde `snapshotStore`, escribir a FS vía `webFilesystemProvider`, validar post-condición, manejar fallos parciales
-- Bonus: arrancar Operation Journal (spec punto 10) como object store extra en `snapshotStore`
+**STATUS:** ✅ done
 
-**Cómo reclamar:** editar `.arkmind/STATE.json` (cambiar `claimedBy` a tu nombre, `status` a `in_progress`) + añadir línea `### 🔒 CLAIMED — Paso 2 — …` arriba de esta sección.
+**TOUCHED:**
+- `.arkmind/AXIOMS.md` *(nuevo)* — reglas duras inamovibles (orden de lectura, jerarquía de verdad, reporte de cierre)
+- `.arkmind/modules/` *(nuevo)* — estructura por módulo con SPEC + CONTRACT + STATUS
+  - `_REGISTRY.md` (mapa de módulos)
+  - `snapshot-store/SPEC.md`, `CONTRACT.md`, `STATUS.md`
+  - `rollback-engine/SPEC.md`, `CONTRACT.md`, `STATUS.md` (refinados desde la versión de Claude)
+  - `op-journal/SPEC.md`, `CONTRACT.md`, `STATUS.md` (stubs)
+  - `spec-discrepancies/SPEC.md`, `CONTRACT.md`, `STATUS.md` (stubs)
+- `.arkmind/decisions/0002-rollback-transaction-status-update.md` *(nuevo)* — ADR proposed para la discrepancia
+- `.arkmind/STATE.json` — schema v2 con modelo de módulos + openQuestions
+- `.arkmind/CONVENTIONS.md` — actualizado con orden de lectura AXIOMS
+- `.arkmind/NO-GO-ZONES.md` — actualizado con zonas por módulo
+- `PROGRESS.md` *(este archivo)* — plantilla slim unificada
 
-Mavis (yo) está disponible para hacerlo si nadie lo reclama en la próxima sesión.
+**VERIFIED:**
+- JSON de STATE.json válido
+- Estructura de directorios creada correctamente
+- Cada módulo tiene sus 3 archivos (SPEC, CONTRACT, STATUS)
+- `_REGISTRY.md` lista los 4 módulos con su estado actual
+- ADR 0002 enlazado desde el SPEC de rollback-engine
+
+**NOT VERIFIED:**
+- No testeé que la siguiente IA encuentre todo a la primera (depende de la primera sesión real)
+- No actualicé la entrada del Paso 1 en PROGRESS al nuevo modelo de módulos (lo hice retroactivo, ver arriba)
+
+**DECISIONS:**
+- **Adopté el modelo de módulos de Claude**, descartando mi "pasos lineales". Más sano, mejor contrato, mejor para escalar.
+- **Adopté AXIOMS.md de Claude** casi tal cual, refiné la versión 1.1 con ajustes menores.
+- **Jerarquía de verdad de 7 niveles**: la dejé como Claude la diseñó. Vale la complejidad.
+- **Discrepancia `rollback()` / `Transaction.status`**: la documenté como ADR 0002 proposed. No la resolví a favor de un lado u otro — eso le toca a quien implemente `rollback-engine`.
+- **SPEC/CONTRACT en español para contenido, inglés para nombres técnicos**: para que el grep sea universal y la lectura sea nativa.
+
+**OPEN QUESTIONS:**
+- Q2 (IA opcional) — sigue abierta, ahora con `relatedTo: "spec-discrepancies"` en STATE.json.
+- Q3 (sync entre dispositivos) — sigue abierta.
+
+**HANDOFF:**
+- Módulo listo para reclamar: **`rollback-engine`** (estado pending).
+- Antes de implementarlo, leer:
+  1. `AXIOMS.md` (orden de lectura, jerarquía)
+  2. `NO-GO-ZONES.md` (qué no tocar, especialmente `types.ts` y `transactions.ts`)
+  3. `modules/rollback-engine/SPEC.md` (qué construir + discrepancia con ADR 0002)
+  4. `modules/rollback-engine/CONTRACT.md` (firmas exactas)
+  5. `decisions/0002-rollback-transaction-status-update.md` (decidir el path antes de tocar código)
+- El path recomendado en ADR 0002 es: implementar `rollback()` con la nueva firma → caller traduce → ADR se mueve a `accepted` automáticamente.
+- Si el implementador elige el otro path (acoplar `snapshots.ts` con `transactions.ts`), rechaza ADR 0002 y abre uno nuevo antes de empezar.
+
+**PROBLEMS / BLOCKERS:**
+- Ninguno.
+
+---
+
+## 🚧 Estado actual — 2026-06-02T10:40:00Z
+
+| Módulo | Estado | Reclamado por | ADR |
+|---|---|---|---|
+| `snapshot-store` | ✅ done | Mavis | 0001 |
+| `rollback-engine` | 🟡 pending | — | 0002 (proposed) |
+| `op-journal` | 🟡 pending | — | — |
+| `spec-discrepancies` | 🟡 pending | — | 0003-0005 (anticipados) |
+
+**Próximo paso lógico:** reclamar `rollback-engine` siguiendo el flujo de `CONVENTIONS.md`. Antes de tocar código, leer y decidir sobre ADR 0002 (propuesta de path #1 vs path alternativo).
+
+**Pendiente externo:** push de los commits locales a `origin` (no se pudo hacer desde el sandbox por falta de credenciales).

@@ -24,14 +24,17 @@
 
 ## Coordinación
 
-- **A8** — Las IAs que colaboran siguen `.arkmind/CONVENTIONS.md` y `.arkmind/NO-GO-ZONES.md`. Protocolo claim/release es ley.
+- **A8** — Las IAs que colaboran siguen `.arkmind/AXIOMS.md`, `.arkmind/CONVENTIONS.md` y `.arkmind/NO-GO-ZONES.md`. El orden de lectura de AXIOMS §I es ley.
 - **A9** — `PROGRESS.md` es append-only. `STATE.json` es la verdad consultable del estado actual. Si discrepan, gana `STATE.json` para coordinación.
-- **A10** — Cada paso se cierra con: entrada slim en `PROGRESS.md` + update de `STATE.json` + commit con convención `[ia:<nombre>][paso-N] <tipo>: <desc>`.
+- **A10** — Cada módulo se cierra con: entrada slim en `PROGRESS.md` + update de `STATE.json` + update de `_REGISTRY.md` + commit con convención `[ia:<nombre>] [<module>] <tipo>: <desc>`.
+- **A11** — La unidad de trabajo es el **módulo**, no el paso. Un módulo tiene SPEC + CONTRACT + STATUS y vive en `.arkmind/modules/<nombre>/`.
+- **A12** — Los contratos (`CONTRACT.md` de cada módulo) son ley mientras el módulo esté en uso. Cambiarlos requiere actualizar todos los callers y un ADR si afecta a la API pública del core.
 
 ## Operación
 
-- **A11** — `rollback()` es un ciudadano de primera. Si una operación no puede hacer rollback limpio, **no se ejecuta**. La seguridad gana sobre la conveniencia.
-- **A12** — Las **decisiones arquitecturales gordas** se documentan en `decisions/NNNN-*.md` siguiendo el formato ADR. Las pequeñas viven en el `DECISIONS` de la entrada del PROGRESS.
+- **A13** — `rollback()` es un ciudadano de primera. Si una operación no puede hacer rollback limpio, **no se ejecuta**. La seguridad gana sobre la conveniencia.
+- **A14** — Las **decisiones arquitecturales gordas** se documentan en `decisions/NNNN-*.md` siguiendo el formato ADR. Las pequeñas viven en el `DECISIONS` de la entrada del PROGRESS.
+- **A15** — El caller de una operación decide qué hacer con el resultado. Los módulos devuelven resultados ricos (discriminated unions) y NO mutan estado global de otros módulos.
 
 ---
 
