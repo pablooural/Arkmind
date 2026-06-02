@@ -1,13 +1,13 @@
 # Status: rollback-engine
 
-## Estado: 🟡 pending
+## Estado: 🔵 in_progress
 
 | Campo | Valor |
 |---|---|
-| IA asignada | — |
-| Rama | — |
-| Último update | 2026-06-02T10:30:00Z |
-| ADR relacionado | 0002 (pendiente — ver discrepancia en SPEC.md) |
+| IA asignada | Mavis@cloud |
+| Rama | ia/mavis-cloud/rollback-engine |
+| Último update | 2026-06-02T11:52:00Z |
+| ADR relacionado | 0002 (a aceptar al cerrar el módulo) |
 
 ---
 

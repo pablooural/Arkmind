@@ -12,12 +12,12 @@
       "adr": "0001"
     },
     "rollback-engine": {
-      "status": "pending",
-      "claimedBy": null,
-      "claimedAt": null,
-      "branch": null,
+      "status": "in_progress",
+      "claimedBy": "Mavis@cloud",
+      "claimedAt": "2026-06-02T11:52:00Z",
+      "branch": "ia/mavis-cloud/rollback-engine",
       "dependsOn": ["snapshot-store"],
-      "adr": "0002 (proposed)"
+      "adr": "0002 (proposed, will be accepted on close)"
     },
     "op-journal": {
       "status": "pending",
