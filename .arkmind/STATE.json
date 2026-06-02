@@ -1,8 +1,8 @@
 {
   "project": "Arkmind",
   "schemaVersion": 2,
-  "lastUpdated": "2026-06-02T10:35:00Z",
-  "currentFocus": "snapshot-store done · rollback-engine pending · op-journal pending · spec-discrepancies pending",
+  "lastUpdated": "2026-06-02T10:50:00Z",
+  "currentFocus": "snapshot-store done · rollback-engine done · op-journal pending · spec-discrepancies in_progress (Aria, rama ia/aria/spec-discrepancies)",
   "modules": {
     "snapshot-store": {
       "status": "done",
@@ -29,12 +29,12 @@
       "adr": null
     },
     "spec-discrepancies": {
-      "status": "pending",
-      "claimedBy": null,
-      "claimedAt": null,
-      "branch": null,
+      "status": "in_progress",
+      "claimedBy": "Aria",
+      "claimedAt": "2026-06-02T10:50:00Z",
+      "branch": "ia/aria/spec-discrepancies",
       "dependsOn": [],
-      "adr": "0003-0005 (anticipados)"
+      "adr": "0003-0004 (en curso), 0005 fuera de alcance"
     }
   },
   "openQuestions": [
@@ -74,6 +74,11 @@
       "date": "2026-06-02T12:05:00Z",
       "by": "Mavis@cloud",
       "action": "rollback-engine done: rollback() con RollbackResult, verifyRestoration(), ADR 0002 accepted, transactions.ts caller actualizado, types.ts extendido con 'rollback_failed'"
+    },
+    {
+      "date": "2026-06-02T10:50:00Z",
+      "by": "Aria",
+      "action": "claim spec-discrepancies: refiné SPEC/CONTRACT a v0.2, decisión de alcance: ADR 0003+0004 sí, ADR 0005 fuera (sesión propia)"
     },
     {
       "date": "2026-06-01T14:00:00Z",

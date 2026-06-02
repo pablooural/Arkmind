@@ -1,78 +1,111 @@
 # Module: spec-discrepancies
 
 **Fecha de creación:** 2026-06-02
+**Refinado por:** Aria — 2026-06-02 (antes del claim)
 **Paso relacionado:** 3
 **IA autora del spec:** Mavis
-**Estado:** 🟡 pending — sin reclamar
+**Estado:** 🔵 in_progress — Aria, rama `ia/aria/spec-discrepancies`
 
 ---
 
 ## What this module does
 
-Resolves the discrepancies between the official spec (`info_20arki.txt`) and the
-current code in `artifacts/ux-arquitecto/`. The big tensions identified in the
-initial review:
+Resuelve las discrepancias entre la spec oficial (`info_20arki.txt`) y el código
+actual en `artifacts/ux-arquitecto/`, alineando el core con las suposiciones A1-A15
+y abriendo los ADRs correspondientes.
 
-1. **GitHub is optional** (spec) vs **project lives in GitHub** (code) — compatible
-   if treated as a provider, not a dependency
-2. **Offline-first / no cloud** (spec) vs **Supabase + Replit deps** (code) —
-   the cloud bits must be modeled as `optional providers`
-3. **IA proposes, never executes** (spec) vs **hard-coded `ai.ts` with Mistral**
-   (code) — the IA dependency should be pluggable
-4. **No external services** (spec) vs **routes call Mistral/Supabase in
-   `artifacts/api-server`** — this server is OUTSIDE the core, less critical
-5. **IndexedDB only** (spec, point 11) vs **no local persistence yet** (code) —
-   we fixed part of this with `snapshot-store` module, but sessions/context
-   still in memory
+Las 5 discrepancias que Mavis identificó en el spec original, ordenadas por
+complejidad y dependencias:
 
----
+| # | Discrepancia | ADR | Alcance de esta sesión |
+|---|---|---|---|
+| 1 | IA hard-coded a Mistral vs "IA operativa pero propone" (A4) | 0003 | ✅ sí |
+| 2 | Auth acoplado a Supabase implícito vs "providers externos opcionales" (A3) | 0004 | ✅ sí (limpieza) |
+| 3 | Sessions / cognitive / visual / memory solo en memoria vs "IndexedDB only" (A2) | 0005 | ❌ fuera de alcance |
+| 4 | `api-server` con rutas a Mistral/Supabase | — (otro artefacto) | ❌ fuera de alcance |
+| 5 | GitHub como provider opcional | — | ❌ fuera de alcance |
 
-## What needs to be done (concrete)
+### Razón del alcance recortado
 
-For each tension, the next IA should:
-
-1. Open an ADR describing the decision
-2. Implement the refactor (if any) that makes the code spec-compliant
-3. Update `NO-GO-ZONES.md` and `SUPOSICIONES.md` accordingly
-4. Add tests if applicable
-
-### Concrete refactors anticipated
-
-- **`ai.ts`** — make AI calls pluggable behind an `AIProvider` interface,
-  with a `NoopAIProvider` as default (does nothing, just proposes structural
-  changes locally)
-- **`auth.ts`** — make it optional. If no auth configured, the runtime works
-  in single-user mode without auth
-- **`supabase.ts`** — clarify it's an external sync provider, not a core dep
-- **`session.ts`, `cognitive.ts`, `visual.ts`, `memory.ts`** — these still
-  live in memory. Add IndexedDB persistence behind the same `snapshotStore`
-  pattern (or a sibling `runtimeStore`)
+- **ADR 0005** (persistencia de session/cognitive/visual/memory en IDB) es un
+  refactor grande: afecta 4 managers, requiere definir un `runtimeStore` sibling
+  del `snapshotStore`, posiblemente migrar el `snapshotStore` para soportar
+  múltiples object stores en una sola migración. Mejor en una sesión propia
+  con `pnpm install` que complete.
+- **API-server** vive en otro artefacto y NO está en `artifacts/ux-arquitecto/`.
+  Cualquier cambio ahí requiere coordinación con quien mantiene ese artefacto.
+- **GitHub provider** ya está conceptualmente alineado: el repo ES el código,
+  el FS del usuario es su contenido. No hay código que migrar.
 
 ---
 
 ## Files this module CAN touch
 
-Most files in `artifacts/ux-arquitecto/src/core/` are fair game, **except**:
-- `types.ts` — requires ADR for any change
-- The atomic `Snapshot` / `Transaction` contracts already established
+```
+artifacts/ux-arquitecto/src/core/ai.ts            ← refactor: AIProvider interface + NoopAIProvider
+artifacts/ux-arquitecto/src/core/auth.ts          ← refactor: rename Supabase fields, document local-only
+artifacts/ux-arquitecto/src/core/index.ts         ← re-export nuevos tipos
+.arkmind/decisions/0003-*.md                      ← nuevo
+.arkmind/decisions/0004-*.md                      ← nuevo
+.arkmind/SUPOSICIONES.md                          ← añadir nota sobre IA opcional (post-ADR)
+.arkmind/NO-GO-ZONES.md                           ← no debería necesitar cambios
+.arkmind/modules/spec-discrepancies/{SPEC,CONTRACT,STATUS}.md  ← cerrar al final
+.arkmind/STATE.json                               ← reflejar status + claimedBy
+.arkmind/modules/_REGISTRY.md                     ← reflejar status
+PROGRESS.md                                       ← entrada slim al cerrar
+```
 
 ## Files this module CANNOT touch
 
 ```
+artifacts/ux-arquitecto/src/core/types.ts
 artifacts/ux-arquitecto/src/core/snapshotStore.ts
-artifacts/ux-arquitecto/src/core/snapshots.ts                 ← snapshot-store module
-artifacts/ux-arquitecto/src/core/transactions.ts              ← consumed by rollback-engine
+artifacts/ux-arquitecto/src/core/snapshots.ts
+artifacts/ux-arquitecto/src/core/transactions.ts
+artifacts/ux-arquitecto/src/core/WebFilesystemProvider.ts
+artifacts/ux-arquitecto/src/core/session.ts
+artifacts/ux-arquitecto/src/core/cognitive.ts
+artifacts/ux-arquitecto/src/core/visual.ts
+artifacts/ux-arquitecto/src/core/memory.ts
+artifacts/ux-arquitecto/src/core/workspace.ts
+artifacts/ux-arquitecto/src/core/filesystem.ts
+artifacts/api-server/**                            ← otro artefacto
 ```
 
----
-
-## ADR outputs expected
-
-- ADR 0003 — IA as optional provider
-- ADR 0004 — Auth as optional
-- ADR 0005 — Sessions/context persistence in IndexedDB
-- (Others as identified)
+`types.ts` se evita para no obligar a sincronizar todos los managers; lo que se
+añada que sea interfaz nueva en el propio archivo del módulo (`ai.ts`).
 
 ---
 
-*Stub. The next IA should refine the SPEC before claiming.*
+## Behavior esperado
+
+### Después de este módulo
+
+1. **`ai.ts` con `AIProvider` interface**:
+   - `interface AIProvider { id, propose(request): Promise<Proposal>, isAvailable(): boolean }`
+   - `class NoopAIProvider implements AIProvider` — no llama a nada externo, `propose()`
+     devuelve `{ kind: "noop", summary: "IA no configurada" }` y `isAvailable()` es `false`.
+   - `class MistralAIProvider implements AIProvider` — encapsula la lógica Mistral actual
+     (config, model, apiKey) detrás de la interfaz. Si no hay `apiKey`, `isAvailable()` es `false`.
+   - `AIManager` arranca con `NoopAIProvider` por default. `setProvider(provider)` permite
+     inyectar otro. `setAIConfig({ provider: "mistral", ... })` se mantiene como atajo
+     que internamente construye un `MistralAIProvider`. **Backwards-compat preservado.**
+2. **`auth.ts` limpio**:
+   - Renombrar `AuthConfig.supabaseUrl` → `AuthConfig.remoteUrl`, `AuthConfig.supabaseKey`
+     → `AuthConfig.remoteKey`. Marcar los viejos como `@deprecated` (re-export).
+   - Añadir doc-comment al manager: "este manager es el estado LOCAL de la sesión
+     (localStorage). La integración con el auth provider vive en `api-server`."
+3. **`index.ts` re-exporta** los nuevos tipos `AIProvider`, `NoopAIProvider`,
+   `MistralAIProvider`, `Proposal`.
+
+### Invariantes que NO se rompen
+
+- `AIManager.isConfigured()` sigue funcionando (devuelve `true` si el provider activo
+  reporta `isAvailable() === true`).
+- `authManager.isAuthenticated()` sigue funcionando idéntico.
+- El singleton `aiManager` y `authManager` siguen siendo el mismo objeto (no se renombran).
+- `coreEngine.ai` y `coreEngine.auth` siguen existiendo.
+
+---
+
+*Refinado por Aria antes de implementar, como pedía el stub original.*

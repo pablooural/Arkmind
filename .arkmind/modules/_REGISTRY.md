@@ -14,7 +14,7 @@
 | `snapshot-store` | ✅ done | Mavis | — | 0001 |
 | `rollback-engine` | ✅ done | Mavis@cloud | `snapshot-store` | 0002 (accepted) |
 | `op-journal` | 🟡 pending | — | `rollback-engine` | — |
-| `spec-discrepancies` | 🟡 pending | — | — | — |
+| `spec-discrepancies` | 🔵 in_progress | Aria | — | 0003-0004 (en curso) |
 
 ### Leyenda
 - ✅ done — implementado y verificado
@@ -86,4 +86,4 @@ Si la IA **NO tiene acceso al repo**, pegarle exactamente esto (en este orden):
 
 ---
 
-*Última actualización: 2026-06-02 — Mavis@cloud (rollback-engine done, ADR 0002 accepted)*
+*Última actualización: 2026-06-02 — Aria (claim spec-discrepancies, rama ia/aria/spec-discrepancies)*
