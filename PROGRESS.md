@@ -201,3 +201,58 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 
 **PROBLEMS / BLOCKERS:**
 - Ninguno.
+
+---
+
+## spec-discrepancies — IA y auth como providers opcionales — 2026-06-02 — Aria
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/core/ai.ts` — refactor: `AIProvider` interface + `NoopAIProvider` (default) + `MistralAIProvider`, `AIManager` arranca con noop, `setProvider`/`getProvider`, `setAIConfig` ahora backwards-compat atajo
+- `artifacts/ux-arquitecto/src/core/auth.ts` — `AuthConfig.remoteUrl`/`remoteKey` (aliases `supabaseUrl`/`supabaseKey` @deprecated), `setRemoteConfig`/`getRemoteConfig`, doc-comment aclarando local-only
+- `artifacts/ux-arquitecto/src/core/index.ts` — re-exports nuevos tipos
+- `.arkmind/decisions/0003-ai-as-optional-provider.md` *(nuevo, accepted)*
+- `.arkmind/decisions/0004-auth-as-local-with-optional-remote.md` *(nuevo, accepted)*
+- `.arkmind/SUPOSICIONES.md` — referencia cruzada a ADRs 0003/0004
+- `.arkmind/modules/spec-discrepancies/{SPEC,CONTRACT,STATUS}.md` — refinados a v0.2, STATUS cerrado
+- `.arkmind/STATE.json` — módulo done, Q2 resuelta
+- `.arkmind/modules/_REGISTRY.md` — fila actualizada
+
+**VERIFIED:**
+- `tsc --noEmit` parcial (noResolve, foco en `ai.ts` y `auth.ts`) → 0 errores de tipo, solo `Cannot find module './types'` esperado
+- `grep` cruzado: callers de `AIManager` en core (solo `index.ts` + `useAI.ts`) usan API backwards-compat preservada
+- `grep` cruzado: callers de `AuthManager` en core (solo `useAuth.ts` + `LoginPage.tsx`) usan solo `loadSession`/`onSessionChange`/`clearSession`/`saveSession` — todos preservados
+- ADRs 0003 y 0004 movidos a `accepted` con justificación de sus consecuencias
+
+**NOT VERIFIED:**
+- `pnpm install` end-to-end (mismo timeout 5 min que las dos sesiones previas)
+- Tests automatizados: no hay tests para `AIProvider` ni `AuthManager` en el repo
+- Runtime real en browser (no testeable desde sandbox)
+- `MistralAIProvider.propose()` es un stub estructurado, NO hace fetch real a la API
+- Safari/Firefox runtime
+
+**DECISIONS:**
+- **Alcance recortado**: ADR 0005 (persistencia IDB de session/cognitive/visual/memory) queda fuera de este módulo. Razón: afecta 4 managers, requiere diseñar `runtimeStore` o extender `snapshotStore`, y merece sesión propia con typecheck end-to-end.
+- **Scope creep en auth.ts**: añadí `setRemoteConfig`/`getRemoteConfig` que no estaban en el SPEC original. Justificación: `AuthConfig` ahora tiene `remoteUrl`/`remoteKey` pero ningún método para setearlos. No hay callers, así que es safe add.
+- **`MistralAIProvider.propose()` es stub**: no hace fetch. Mantiene el mismo nivel de operación que el código previo. La llamada real queda para una sesión con tests que mockeen `fetch`.
+- **Q2 resuelta**: ADR 0003 responde formalmente. La paso a `resolved` en `STATE.json` con `resolvedBy: "Aria"` y `resolvedByADR: "0003"`.
+
+**OPEN QUESTIONS:**
+- Q1 (versionado de snapshots) — sigue abierta, no tocada.
+- Q3 (sync entre dispositivos) — sigue abierta, no tocada.
+- **Q4 (nueva)**: ¿Se crea un `runtimeStore` sibling de `snapshotStore` para session/cognitive/visual/memory, o se extiende `snapshotStore` con migración a v2? Decisión de arquitectura para ADR 0005.
+
+**HANDOFF:**
+- Siguiente módulo lógico: `op-journal` (sigue pending, dependencia de rollback-engine ya satisfecha). **OJO**: `op-journal` sigue siendo stub puro. La IA que lo reclame tiene que refinar su SPEC primero (es lo que su SPEC original pedía).
+- Si se opta por encarar ADR 0005 (persistencia IDB), leer:
+  1. Este módulo (`spec-discrepancies/SPEC.md` sección "Concrete refactors anticipated")
+  2. `snapshotStore.ts` para entender el patrón actual
+  3. Q4 (en `OPEN QUESTIONS`) sobre la decisión de un store único vs múltiples
+- Si se opta por la llamada real a Mistral, leer:
+  1. `AIProvider` interface (en `ai.ts`) y `MistralAIProvider.propose()` actual
+  2. Crear un `MistralHTTPProvider` separado que use `fetch` nativo, mockeando en tests
+- Branch: `ia/aria/spec-discrepancies` — lista para push y PR contra `main`.
+
+**PROBLEMS / BLOCKERS:**
+- Ninguno.
