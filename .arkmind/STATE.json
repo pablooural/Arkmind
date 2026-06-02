@@ -2,7 +2,7 @@
   "project": "Arkmind",
   "schemaVersion": 2,
   "lastUpdated": "2026-06-02T11:30:00Z",
-  "currentFocus": "snapshot-store done · rollback-engine done · spec-discrepancies done (Aria, ADR 0003+0004 accepted) · op-journal pending · ADR 0005 pendiente (persistencia IDB de session/cognitive/visual/memory)",
+  "currentFocus": "op-journal in progress (Manus) · ADR 0006 proposed · ADR 0005 pending (persistencia IDB de session/cognitive/visual/memory)",
   "modules": {
     "snapshot-store": {
       "status": "done",
@@ -26,7 +26,7 @@
       "claimedAt": "2026-06-02T12:15:00Z",
       "branch": "ia/manus/op-journal",
       "dependsOn": ["rollback-engine"],
-      "adr": null
+      "adr": "0006 (proposed)"
     },
     "spec-discrepancies": {
       "status": "done",
