@@ -1,12 +1,12 @@
 # Status: rollback-engine
 
-## Estado: 🟡 pending
+## Estado: 🔵 in_progress
 
 | Campo | Valor |
 |---|---|
-| IA asignada | — |
-| Rama | — |
-| Último update | 2026-06-02T10:30:00Z |
+| IA asignada | Atlas |
+| Rama | `ia/atlas/rollback-engine` |
+| Último update | 2026-06-02T11:05:00Z |
 | ADR relacionado | 0002 (pendiente — ver discrepancia en SPEC.md) |
 
 ---
@@ -47,3 +47,4 @@
 |---|---|---|---|
 | 2026-06-01 | Claude | Creación del spec | Módulo definido, pendiente de implementación |
 | 2026-06-02 | Mavis | Refinamiento del SPEC | Añadida discrepancia `Transaction.status`, clarificados invariantes y errores |
+| 2026-06-02 | Atlas | Claim | Reclamado para implementar rollback() siguiendo ADR 0002 Path #1 |

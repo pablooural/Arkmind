@@ -12,10 +12,10 @@
       "adr": "0001"
     },
     "rollback-engine": {
-      "status": "pending",
-      "claimedBy": null,
-      "claimedAt": null,
-      "branch": null,
+      "status": "in_progress",
+      "claimedBy": "Atlas",
+      "claimedAt": "2026-06-02T11:00:00Z",
+      "branch": "ia/atlas/rollback-engine",
       "dependsOn": ["snapshot-store"],
       "adr": "0002 (proposed)"
     },
