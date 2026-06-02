@@ -2,7 +2,7 @@
   "project": "Arkmind",
   "schemaVersion": 2,
   "lastUpdated": "2026-06-02T11:30:00Z",
-  "currentFocus": "op-journal done (Manus) · ADR 0006 accepted · ADR 0005 pending (persistencia IDB de session/cognitive/visual/memory)",
+  "currentFocus": "runtime-persistence in progress (Manus@delta) · ADR 0005 proposed · op-journal done",
   "modules": {
     "snapshot-store": {
       "status": "done",
@@ -36,6 +36,14 @@
       "branch": "ia/aria/spec-discrepancies",
       "dependsOn": [],
       "adr": "0003 accepted, 0004 accepted (0005 fuera de alcance, queda como handoff)"
+    },
+    "runtime-persistence": {
+      "status": "in_progress",
+      "claimedBy": "Manus@delta",
+      "claimedAt": "2026-06-02T13:40:00Z",
+      "branch": "ia/manus/runtime-persistence",
+      "dependsOn": ["op-journal"],
+      "adr": "0005 (proposed)"
     }
   },
   "openQuestions": [
