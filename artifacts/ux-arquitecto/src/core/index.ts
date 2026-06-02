@@ -23,6 +23,9 @@ export { cognitiveManager, CognitiveContextManager } from "./cognitive";
 export { visualManager, VisualContextManager } from "./visual";
 export { aiManager, AIManager } from "./ai";
 export type { AIConfig, SupabaseConfig, AIMessage, MistralModel } from "./ai";
+// ADR 0003 — AIProvider interface, NoopAIProvider (default), MistralAIProvider
+export type { AIProvider, AIRequest, AIProposal } from "./ai";
+export { NoopAIProvider, MistralAIProvider } from "./ai";
 export { authManager, type User, type AuthSession, type AuthConfig } from "./auth";
 export { memoryManager, MemoryManager } from "./memory";
 export type { HierarchicalMemoryResult } from "./memory";
