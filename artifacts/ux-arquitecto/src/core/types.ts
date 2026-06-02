@@ -229,10 +229,35 @@ export interface Transaction {
   type: "read" | "write" | "delete" | "move" | "create" | "branch";
   targetPath: string;
   snapshotId?: string;
-  status: "pending" | "validated" | "executed" | "confirmed" | "rolled_back";
+  status: "pending" | "validated" | "executed" | "confirmed" | "rolled_back" | "rollback_failed";
   createdAt: number;
   executedAt?: number;
 }
+
+// ─── Rollback Result (rollback-engine) ───────────────────────────────────────
+
+/** Razón por la que un archivo falló al restaurar desde snapshot. */
+export type RollbackFailureReason = "write_error" | "verify_error" | "not_found";
+
+/** Detalle de un fallo individual durante un rollback. */
+export interface RollbackFailure {
+  path: string;
+  reason: RollbackFailureReason;
+  error?: unknown;
+}
+
+/**
+ * Resultado de un rollback. Discriminated union por `success`:
+ * - `true`  → todos los archivos se restauraron y verificaron correctamente
+ * - `false` → al menos un archivo falló; ver `failedFiles`
+ *
+ * Decisión arquitectural: ADR 0002 (accepted 2026-06-02 por Mavis@cloud).
+ * El módulo `rollback-engine` devuelve este tipo; el caller
+ * (`transactions.ts`) es quien traduce a `Transaction.status`.
+ */
+export type RollbackResult =
+  | { success: true;  restoredFiles: string[]; snapshotId: string }
+  | { success: false; restoredFiles: string[]; failedFiles: RollbackFailure[]; snapshotId: string };
 
 export interface Workspace {
   id: string;

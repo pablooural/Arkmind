@@ -12,7 +12,7 @@
 | Módulo | Estado | IA actual | Depende de | ADR |
 |---|---|---|---|---|
 | `snapshot-store` | ✅ done | Mavis | — | 0001 |
-| `rollback-engine` | 🟡 pending | — | `snapshot-store` | 0002 (pendiente) |
+| `rollback-engine` | ✅ done | Mavis@cloud | `snapshot-store` | 0002 (accepted) |
 | `op-journal` | 🟡 pending | — | `rollback-engine` | — |
 | `spec-discrepancies` | 🟡 pending | — | — | — |
 
@@ -86,4 +86,4 @@ Si la IA **NO tiene acceso al repo**, pegarle exactamente esto (en este orden):
 
 ---
 
-*Última actualización: 2026-06-02 — Mavis (refinando propuesta de Claude)*
+*Última actualización: 2026-06-02 — Mavis@cloud (rollback-engine done, ADR 0002 accepted)*

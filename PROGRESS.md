@@ -138,15 +138,66 @@
 
 ---
 
-## 🚧 Estado actual — 2026-06-02T10:40:00Z
+## 🚧 Estado actual — 2026-06-02T12:05:00Z
 
 | Módulo | Estado | Reclamado por | ADR |
 |---|---|---|---|
 | `snapshot-store` | ✅ done | Mavis | 0001 |
-| `rollback-engine` | 🟡 pending | — | 0002 (proposed) |
+| `rollback-engine` | ✅ done | Mavis@cloud | 0002 (accepted) |
 | `op-journal` | 🟡 pending | — | — |
 | `spec-discrepancies` | 🟡 pending | — | 0003-0005 (anticipados) |
 
-**Próximo paso lógico:** reclamar `rollback-engine` siguiendo el flujo de `CONVENTIONS.md`. Antes de tocar código, leer y decidir sobre ADR 0002 (propuesta de path #1 vs path alternativo).
+**Próximo paso lógico:** reclamar `op-journal` o `spec-discrepancies`. `op-journal` ahora
+tiene `rollback-engine` como dependencia satisfecha, así que es el más natural para
+encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 
-**Pendiente externo:** push de los commits locales a `origin` (no se pudo hacer desde el sandbox por falta de credenciales).
+**Pendiente externo:** push de los commits locales a `origin` (no se pudo hacer desde el sandbox por falta de credenciales). Acumula: `snapshot-store` (1 commit) + esta reorganización de módulos + `rollback-engine` (claim + feat + close).
+
+---
+
+## rollback-engine — Restore desde snapshot con resultado discriminado — 2026-06-02 — Mavis@cloud
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/core/snapshots.ts` — `rollback(snapshotId)` real con `loadSnapshotFiles` + `writeFile` + `verifyRestoration`, devuelve `Promise<RollbackResult>`
+- `artifacts/ux-arquitecto/src/core/snapshots.ts` — `verifyRestoration(path, expectedContent)` exportado y testeable
+- `artifacts/ux-arquitecto/src/core/types.ts` — añadidos `RollbackResult`, `RollbackFailure`, `RollbackFailureReason`; `TransactionStatus` extendida con `"rollback_failed"`
+- `artifacts/ux-arquitecto/src/core/transactions.ts` — `rollbackTransaction()` traduce `RollbackResult` → `Transaction.status` (`rolled_back` / `rollback_failed`)
+- `.arkmind/decisions/0002-rollback-transaction-status-update.md` — ADR movido a `accepted`
+- `.arkmind/STATE.json` — módulo `rollback-engine` → `done`, ADR `accepted`, `currentFocus` actualizado
+- `.arkmind/modules/rollback-engine/STATUS.md` — cerrado, handoff completo
+- `.arkmind/modules/_REGISTRY.md` — fila `rollback-engine` actualizada
+- `PROGRESS.md` *(esta entrada)*
+
+**VERIFIED:**
+- `tsc --noEmit` parcial sobre los archivos modificados → 0 errores
+- `grep` cruzado: `RollbackResult` / `RollbackFailure` / `"rollback_failed"` aparecen exactamente donde corresponde (definidos en `types.ts`, consumidos en `snapshots.ts` y `transactions.ts`)
+- No quedan callers de la firma vieja `rollback(): Promise<boolean>` en `artifacts/ux-arquitecto/src/`
+- INVARIANTES del CONTRACT cumplidos: `restoredFiles` no incluye `verify_error`, snapshot vacío → `success: true`, fallos individuales no throw
+
+**NOT VERIFIED:**
+- `pnpm install` end-to-end (mismo timeout que la sesión de snapshot-store)
+- Sin tests automatizados para `verifyRestoration` ni para el flujo `rollback → restored`
+- Runtime real en browser (no testeable desde sandbox)
+- Safari/Firefox (idem)
+
+**DECISIONS:**
+- **ADR 0002 aceptado tal cual.** Path #1 (caller traduce) implementado. `snapshots.ts` no importa de `transactions.ts` — jerarquía NO-GO-ZONES respetada.
+- **`RollbackResult` y `RollbackFailure` viven en `types.ts` desde el inicio**, no en `snapshots.ts` con TODO temporal. El ADR estaba maduro, no hacía falta el paso intermedio.
+- **Snapshot vacío es éxito** (`{ success: true, restoredFiles: [], snapshotId }`) — alineado con el SPEC, útil para checkpoints lógicos.
+
+**OPEN QUESTIONS:**
+- Q1 (versionado de snapshots) — sigue abierta. La carga en memoria de `Map<path, string>` puede ser problema con snapshots grandes.
+- Q2 (IA opcional/requerida) — sigue abierta, `relatedTo: spec-discrepancies`.
+
+**HANDOFF:**
+- Siguiente módulo lógico: `op-journal`. Su SPEC/CONTRACT/STATUS están como stubs; ahora que `rollback-engine` está `done`, la dependencia está satisfecha.
+- Antes de implementar `op-journal`, leer:
+  1. ADR 0002 (cómo se reportan los rollbacks ahora)
+  2. `RollbackResult` y `RollbackFailure` en `types.ts` (lo que el journal va a persistir)
+  3. `Transaction.status` extendido con `"rollback_failed"` (otro evento a loguear)
+- Si se opta por `spec-discrepancies` en su lugar, leer `.arkmind/modules/spec-discrepancies/SPEC.md` y arrancar por Q2 (IA opcional/requerida).
+
+**PROBLEMS / BLOCKERS:**
+- Ninguno.
