@@ -256,3 +256,68 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 
 **PROBLEMS / BLOCKERS:**
 - Ninguno.
+
+---
+
+## op-journal — Operation Journal con persistencia IndexedDB — 2026-06-02 — Manus@delta
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/core/types.ts` — añadidos `JournalEntry` y `JournalFilter`.
+- `artifacts/ux-arquitecto/src/core/snapshotStore.ts` — esquema v2 con object store `journal` e índices.
+- `artifacts/ux-arquitecto/src/core/opJournal.ts` — implementación de `OpJournalManager` (add, get, clear).
+- `artifacts/ux-arquitecto/src/core/transactions.ts` — hooks en `create`, `execute`, `confirm` y `rollback`.
+- `artifacts/ux-arquitecto/src/core/index.ts` — exportación de `opJournal` en `coreEngine`.
+- `.arkmind/decisions/0006-op-journal-persistence-and-core-integration.md` — ADR aceptado.
+- `.arkmind/STATE.json`, `.arkmind/modules/_REGISTRY.md`, `STATUS.md` — coordinación actualizada.
+
+**VERIFIED:**
+- `grep` cruzado: todas las referencias a `opJournal` y `JournalEntry` son consistentes.
+- `snapshotStore.ts` maneja correctamente la actualización a `DB_VERSION = 2`.
+- `TransactionManager` ahora tiene 5 puntos de entrada al journal cubriendo el ciclo de vida completo.
+
+**NOT VERIFIED:**
+- Ejecución real en browser (IndexedDB requiere entorno DOM).
+- Rendimiento con miles de entradas (se sugiere política de retención en el futuro).
+
+**DECISIONS:**
+- **ADR 0006 aceptado**: El journal vive en la misma DB `arkmind_runtime` para simplificar la gestión de la conexión.
+- **Fire-and-forget**: Las escrituras al journal no bloquean las transacciones; los errores se loguean a consola pero no interrumpen el flujo.
+- **RollbackResult completo**: Se persiste el objeto de resultado entero para permitir auditoría detallada de fallos de restauración.
+
+**OPEN QUESTIONS:**
+- ¿Debemos implementar un límite de entradas (ej. últimas 1000) para evitar que IndexedDB crezca demasiado?
+- ¿Debería el journal registrar también lecturas (`read`) o solo operaciones destructivas? (Actual: solo destructivas y rollbacks).
+
+**HANDOFF:**
+- El módulo está listo para ser consumido por la UI.
+- Siguiente paso lógico: ADR 0005 (persistencia IDB de session/cognitive/visual/memory) para completar la persistencia del estado del runtime.
+
+---
+
+## runtime-persistence — Persistencia total del runtime en IndexedDB — 2026-06-02 — Manus@delta
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/core/snapshotStore.ts` — esquema v3 con stores `sessions`, `cognitive_contexts`, `visual_contexts` y `memory`.
+- `artifacts/ux-arquitecto/src/core/session.ts` — persistencia IDB y método `hydrate()`.
+- `artifacts/ux-arquitecto/src/core/cognitive.ts` — persistencia IDB y método `hydrate()`.
+- `artifacts/ux-arquitecto/src/core/visual.ts` — persistencia IDB y método `hydrate()`.
+- `artifacts/ux-arquitecto/src/core/memory.ts` — migración completa de `localStorage` a `IndexedDB`, persistencia IDB y método `hydrate()`.
+- `artifacts/ux-arquitecto/src/core/index.ts` — exportación de `hydrateAll()` en `coreEngine`.
+- `.arkmind/decisions/0005-runtime-state-persistence-in-indexeddb.md` — ADR 0005 aceptado.
+
+**VERIFIED:**
+- Consistencia de stores en `snapshotStore.ts`.
+- Patrón de hidratación unificado en todos los managers.
+- Eliminación de la dependencia de `localStorage` en el sistema de memoria.
+
+**DECISIONS:**
+- **ADR 0005 aceptado**: Se utiliza la misma base de datos `arkmind_runtime` para simplificar la gestión de la conexión y futuras migraciones.
+- **Single Point of Hydration**: Se centraliza la carga inicial en `coreEngine.hydrateAll()` para asegurar que todos los managers estén listos antes de que la UI empiece a renderizar.
+
+**HANDOFF:**
+- El sistema de persistencia core está completo.
+- Siguiente paso: Implementación de la UI para visualizar el journal y gestionar las sesiones persistidas.

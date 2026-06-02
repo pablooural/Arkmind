@@ -18,9 +18,46 @@ import {
   CognitiveContext,
   VisualContext,
 } from "./types";
+import { snapshotStore } from "./snapshotStore";
 
 export class SessionManager {
   private sessions: Map<string, AIContextSession> = new Map();
+
+  /**
+   * Cargar sesiones desde IndexedDB
+   */
+  async hydrate(): Promise<void> {
+    try {
+      const { store } = await snapshotStore.getRuntimeStore("sessions", "readonly");
+      const request = store.getAll();
+      return new Promise((resolve, reject) => {
+        request.onsuccess = () => {
+          const loadedSessions = request.result as AIContextSession[];
+          loadedSessions.forEach((s) => this.sessions.set(s.id, s));
+          resolve();
+        };
+        request.onerror = () => reject(request.error);
+      });
+    } catch (error) {
+      console.error("Failed to hydrate sessions:", error);
+    }
+  }
+
+  /**
+   * Persistir sesión en IndexedDB
+   */
+  private async persist(session: AIContextSession): Promise<void> {
+    try {
+      const { tx, store } = await snapshotStore.getRuntimeStore("sessions", "readwrite");
+      store.put(session);
+      return new Promise((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch (error) {
+      console.error(`Failed to persist session ${session.id}:`, error);
+    }
+  }
 
   /**
    * Crear sesión IA para un panel
@@ -50,6 +87,7 @@ export class SessionManager {
     };
 
     this.sessions.set(id, session);
+    this.persist(session);
     return session;
   }
 
@@ -82,6 +120,7 @@ export class SessionManager {
 
     session.messages.push(message);
     session.lastActive = Date.now();
+    this.persist(session);
 
     return message;
   }
@@ -103,6 +142,7 @@ export class SessionManager {
 
     session.proposals.push(proposal);
     session.lastActive = Date.now();
+    this.persist(session);
 
     return proposal;
   }
@@ -123,6 +163,7 @@ export class SessionManager {
 
     proposal.status = status;
     session.lastActive = Date.now();
+    this.persist(session);
 
     return true;
   }
@@ -136,6 +177,7 @@ export class SessionManager {
 
     session.state = state;
     session.lastActive = Date.now();
+    this.persist(session);
 
     return true;
   }
@@ -165,6 +207,7 @@ export class SessionManager {
     };
 
     this.sessions.set(forkedId, forked);
+    this.persist(forked);
     return forked;
   }
 
@@ -186,7 +229,13 @@ export class SessionManager {
    * Destruir sesión
    */
   destroySession(sessionId: string): boolean {
-    return this.sessions.delete(sessionId);
+    const deleted = this.sessions.delete(sessionId);
+    if (deleted) {
+      snapshotStore.getRuntimeStore("sessions", "readwrite").then(({ tx, store }) => {
+        store.delete(sessionId);
+      });
+    }
+    return deleted;
   }
 
   /**

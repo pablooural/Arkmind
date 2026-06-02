@@ -11,6 +11,7 @@
 
 import { Transaction } from "./types";
 import { snapshotManager } from "./snapshots";
+import { opJournal } from "./opJournal";
 
 // ============ TIPOS LOCALES (no exportados) ============
 
@@ -87,6 +88,20 @@ export class TransactionManager {
     // 3. Validar operación
     await this.validateTransaction(id);
 
+    // 4. Log creation to journal
+    opJournal.addEntry({
+      contextPath: targetPath,
+      type: "transaction",
+      action: `create_${type}`,
+      status: "success",
+      transactionId: id,
+      snapshotId: transaction.snapshotId,
+      details: {
+        targetPath,
+        description: `Transaction created for ${type} operation`,
+      },
+    });
+
     return transaction;
   }
 
@@ -151,6 +166,20 @@ export class TransactionManager {
       // TODO: Implementar ejecución real
       transaction.status = "executed";
       transaction.executedAt = Date.now();
+
+      opJournal.addEntry({
+        contextPath: transaction.targetPath,
+        type: "transaction",
+        action: "execute",
+        status: "success",
+        transactionId: transactionId,
+        snapshotId: transaction.snapshotId,
+        details: {
+          targetPath: transaction.targetPath,
+          description: `Transaction ${transaction.type} executed successfully`,
+        },
+      });
+
       return true;
     } catch (error) {
       console.error("Transaction execution failed:", error);
@@ -172,6 +201,20 @@ export class TransactionManager {
     }
 
     transaction.status = "confirmed";
+
+    opJournal.addEntry({
+      contextPath: transaction.targetPath,
+      type: "transaction",
+      action: "confirm",
+      status: "success",
+      transactionId: transactionId,
+      snapshotId: transaction.snapshotId,
+      details: {
+        targetPath: transaction.targetPath,
+        description: `Transaction ${transaction.type} confirmed`,
+      },
+    });
+
     return true;
   }
 
@@ -198,9 +241,40 @@ export class TransactionManager {
 
     if (result.success) {
       transaction.status = "rolled_back";
+
+      opJournal.addEntry({
+        contextPath: transaction.targetPath,
+        type: "rollback",
+        action: "rollback",
+        status: "success",
+        transactionId: transactionId,
+        snapshotId: transaction.snapshotId,
+        details: {
+          targetPath: transaction.targetPath,
+          description: `Rollback successful for ${transaction.type}`,
+          result,
+        },
+      });
+
       return true;
     } else {
       transaction.status = "rollback_failed";
+
+      opJournal.addEntry({
+        contextPath: transaction.targetPath,
+        type: "rollback",
+        action: "rollback",
+        status: "error",
+        transactionId: transactionId,
+        snapshotId: transaction.snapshotId,
+        details: {
+          targetPath: transaction.targetPath,
+          description: `Rollback failed for ${transaction.type}`,
+          error: "At least one file failed to restore",
+          result,
+        },
+      });
+
       return false;
     }
   }

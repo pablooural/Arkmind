@@ -9,9 +9,46 @@
  */
 
 import { CognitiveContext, CognitiveGoal, Insight, Question } from "./types";
+import { snapshotStore } from "./snapshotStore";
 
 export class CognitiveContextManager {
   private contexts: Map<string, CognitiveContext> = new Map();
+
+  /**
+   * Cargar contextos desde IndexedDB
+   */
+  async hydrate(): Promise<void> {
+    try {
+      const { store } = await snapshotStore.getRuntimeStore("cognitive_contexts", "readonly");
+      const request = store.getAll();
+      return new Promise((resolve, reject) => {
+        request.onsuccess = () => {
+          const loadedContexts = request.result as CognitiveContext[];
+          loadedContexts.forEach((c) => this.contexts.set(c.contextPath, c));
+          resolve();
+        };
+        request.onerror = () => reject(request.error);
+      });
+    } catch (error) {
+      console.error("Failed to hydrate cognitive contexts:", error);
+    }
+  }
+
+  /**
+   * Persistir contexto en IndexedDB
+   */
+  private async persist(context: CognitiveContext): Promise<void> {
+    try {
+      const { tx, store } = await snapshotStore.getRuntimeStore("cognitive_contexts", "readwrite");
+      store.put(context);
+      return new Promise((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch (error) {
+      console.error(`Failed to persist cognitive context ${context.contextPath}:`, error);
+    }
+  }
 
   /**
    * Crear contexto cognitivo para una ruta
@@ -28,6 +65,7 @@ export class CognitiveContextManager {
     };
 
     this.contexts.set(contextPath, context);
+    this.persist(context);
     return context;
   }
 
@@ -45,9 +83,9 @@ export class CognitiveContextManager {
     const context = this.getContext(contextPath);
     if (!context) return false;
 
-    context.goal = goal;
+        context.goal = goal;
     context.lastUpdated = Date.now();
-
+    this.persist(context);
     return true;
   }
 
@@ -74,6 +112,7 @@ export class CognitiveContextManager {
 
     context.insights.push(insight);
     context.lastUpdated = Date.now();
+    this.persist(context);
 
     return insight;
   }
@@ -90,6 +129,7 @@ export class CognitiveContextManager {
 
     insight.resolved = true;
     context.lastUpdated = Date.now();
+    this.persist(context);
 
     return true;
   }
@@ -117,6 +157,7 @@ export class CognitiveContextManager {
 
     context.openQuestions.push(question);
     context.lastUpdated = Date.now();
+    this.persist(context);
 
     return question;
   }
@@ -133,6 +174,7 @@ export class CognitiveContextManager {
 
     question.answered = true;
     context.lastUpdated = Date.now();
+    this.persist(context);
 
     return true;
   }
@@ -146,6 +188,7 @@ export class CognitiveContextManager {
 
     context.focusSummary = summary;
     context.lastUpdated = Date.now();
+    this.persist(context);
 
     return true;
   }
@@ -160,6 +203,7 @@ export class CognitiveContextManager {
     if (!context.constraints.includes(constraint)) {
       context.constraints.push(constraint);
       context.lastUpdated = Date.now();
+      this.persist(context);
     }
 
     return true;
@@ -177,6 +221,7 @@ export class CognitiveContextManager {
 
     context.constraints.splice(index, 1);
     context.lastUpdated = Date.now();
+    this.persist(context);
 
     return true;
   }
@@ -205,7 +250,13 @@ export class CognitiveContextManager {
    * Limpiar contexto
    */
   clearContext(contextPath: string): boolean {
-    return this.contexts.delete(contextPath);
+    const deleted = this.contexts.delete(contextPath);
+    if (deleted) {
+      snapshotStore.getRuntimeStore("cognitive_contexts", "readwrite").then(({ tx, store }) => {
+        store.delete(contextPath);
+      });
+    }
+    return deleted;
   }
 
   /**

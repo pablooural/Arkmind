@@ -2,7 +2,7 @@
   "project": "Arkmind",
   "schemaVersion": 2,
   "lastUpdated": "2026-06-02T11:30:00Z",
-  "currentFocus": "snapshot-store done · rollback-engine done · spec-discrepancies done (Aria, ADR 0003+0004 accepted) · op-journal pending · ADR 0005 pendiente (persistencia IDB de session/cognitive/visual/memory)",
+  "currentFocus": "runtime-persistence done (Manus@delta) · ADR 0005 accepted · All core persistence implemented",
   "modules": {
     "snapshot-store": {
       "status": "done",
@@ -21,12 +21,12 @@
       "adr": "0002 (accepted)"
     },
     "op-journal": {
-      "status": "pending",
-      "claimedBy": null,
-      "claimedAt": null,
-      "branch": null,
+      "status": "done",
+      "claimedBy": "Manus@delta",
+      "completedAt": "2026-06-02T13:15:00Z",
+      "branch": "ia/manus/op-journal",
       "dependsOn": ["rollback-engine"],
-      "adr": null
+      "adr": "0006 (accepted)"
     },
     "spec-discrepancies": {
       "status": "done",
@@ -36,6 +36,14 @@
       "branch": "ia/aria/spec-discrepancies",
       "dependsOn": [],
       "adr": "0003 accepted, 0004 accepted (0005 fuera de alcance, queda como handoff)"
+    },
+    "runtime-persistence": {
+      "status": "done",
+      "claimedBy": "Manus@delta",
+      "completedAt": "2026-06-02T14:15:00Z",
+      "branch": "ia/manus/runtime-persistence",
+      "dependsOn": ["op-journal"],
+      "adr": "0005 (accepted)"
     }
   },
   "openQuestions": [

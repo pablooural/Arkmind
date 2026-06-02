@@ -13,13 +13,7 @@
  */
 
 import { WorkingMemory, ContextMemory, CognitiveSnapshot } from "./types";
-
-// ─── Storage Keys ─────────────────────────────────────────────────────────────
-
-const STORAGE_PREFIX = "uxarq";
-const MEM_PREFIX     = `${STORAGE_PREFIX}:mem:`;
-const SNAP_PREFIX    = `${STORAGE_PREFIX}:snap:`;
-const WKMEM_PREFIX   = `${STORAGE_PREFIX}:wkmem:`;
+import { snapshotStore } from "./snapshotStore";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -27,26 +21,42 @@ function generateId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function storageGet<T>(key: string): T | null {
+// ─── IndexedDB Persistence Helpers ──────────────────────────────────────────
+
+async function idbGet<T>(id: string): Promise<T | null> {
   try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : null;
+    const { store } = await snapshotStore.getRuntimeStore("memory", "readonly");
+    const request = store.get(id);
+    return new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve((request.result as T) ?? null);
+      request.onerror = () => reject(request.error);
+    });
   } catch {
     return null;
   }
 }
 
-function storageSet(key: string, value: unknown): void {
+async function idbSet(id: string, value: unknown): Promise<void> {
   try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // localStorage puede estar lleno o en modo privado
+    const { tx, store } = await snapshotStore.getRuntimeStore("memory", "readwrite");
+    store.put({ ...(value as object), id });
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (error) {
+    console.error(`Failed to persist memory ${id}:`, error);
   }
 }
 
-function storageRemove(key: string): void {
+async function idbRemove(id: string): Promise<void> {
   try {
-    localStorage.removeItem(key);
+    const { tx, store } = await snapshotStore.getRuntimeStore("memory", "readwrite");
+    store.delete(id);
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
   } catch {
     // silently ignore
   }
@@ -107,17 +117,34 @@ export class MemoryManager {
   // PASO 1 — Working Memory
   // ═══════════════════════════════════════════════════════════════════════════
 
+  /** Cargar todas las memorias desde IndexedDB */
+  async hydrate(): Promise<void> {
+    try {
+      const { store } = await snapshotStore.getRuntimeStore("memory", "readonly");
+      const request = store.getAll();
+      return new Promise((resolve, reject) => {
+        request.onsuccess = () => {
+          const records = request.result as any[];
+          records.forEach((r) => {
+            if (r.id.startsWith("wkmem:")) {
+              this.workingMemories.set(r.id.replace("wkmem:", ""), r);
+            } else if (r.id.startsWith("cogsnap:")) {
+              this.cognitiveSnapshots.set(r.id, r);
+            }
+          });
+          resolve();
+        };
+        request.onerror = () => reject(request.error);
+      });
+    } catch (error) {
+      console.error("Failed to hydrate memory:", error);
+    }
+  }
+
   /** Obtener o crear Working Memory para una sesión */
   getWorkingMemory(sessionId: string): WorkingMemory {
     if (this.workingMemories.has(sessionId)) {
       return this.workingMemories.get(sessionId)!;
-    }
-
-    // Intentar restaurar desde localStorage
-    const persisted = storageGet<WorkingMemory>(`${WKMEM_PREFIX}${sessionId}`);
-    if (persisted) {
-      this.workingMemories.set(sessionId, persisted);
-      return persisted;
     }
 
     const fresh = emptyWorkingMemory();
@@ -134,7 +161,7 @@ export class MemoryManager {
       lastUpdated: Date.now(),
     };
     this.workingMemories.set(sessionId, updated);
-    storageSet(`${WKMEM_PREFIX}${sessionId}`, updated);
+    idbSet(`wkmem:${sessionId}`, updated);
     return updated;
   }
 
@@ -161,33 +188,32 @@ export class MemoryManager {
   /** Limpiar Working Memory de sesión (al archivar) */
   clearWorkingMemory(sessionId: string): void {
     this.workingMemories.delete(sessionId);
-    storageRemove(`${WKMEM_PREFIX}${sessionId}`);
+    idbRemove(`wkmem:${sessionId}`);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
   // PASO 2 — Context Memory
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /** Cargar Context Memory para una ruta */
-  getContextMemory(contextPath: string): ContextMemory {
-    const key = `${MEM_PREFIX}${contextPath}`;
-    const stored = storageGet<ContextMemory>(key);
+  /** Cargar Context Memory para una ruta (ahora asíncrono para IDB) */
+  async getContextMemory(contextPath: string): Promise<ContextMemory> {
+    const stored = await idbGet<ContextMemory>(`mem:${contextPath}`);
     return stored ?? emptyContextMemory(contextPath);
   }
 
   /** Guardar Context Memory */
-  saveContextMemory(memory: ContextMemory): void {
+  async saveContextMemory(memory: ContextMemory): Promise<void> {
     const updated: ContextMemory = {
       ...memory,
       lastUpdated: Date.now(),
       version: (memory.version ?? 0) + 1,
     };
-    storageSet(`${MEM_PREFIX}${memory.contextPath}`, updated);
+    await idbSet(`mem:${memory.contextPath}`, updated);
   }
 
   /** Actualizar campos de Context Memory (merge parcial) */
-  updateContextMemory(contextPath: string, updates: Partial<ContextMemory>): ContextMemory {
-    const current = this.getContextMemory(contextPath);
+  async updateContextMemory(contextPath: string, updates: Partial<ContextMemory>): Promise<ContextMemory> {
+    const current = await this.getContextMemory(contextPath);
     const updated: ContextMemory = {
       ...current,
       ...updates,
@@ -195,7 +221,7 @@ export class MemoryManager {
       lastUpdated: Date.now(),
       version: current.version + 1,
     };
-    storageSet(`${MEM_PREFIX}${contextPath}`, updated);
+    await idbSet(`mem:${contextPath}`, updated);
     return updated;
   }
 
@@ -206,7 +232,7 @@ export class MemoryManager {
 
   /** Eliminar Context Memory */
   clearContextMemory(contextPath: string): void {
-    storageRemove(`${MEM_PREFIX}${contextPath}`);
+    idbRemove(`mem:${contextPath}`);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -350,7 +376,7 @@ export class MemoryManager {
     };
 
     this.workingMemories.set(sessionId, restored);
-    storageSet(`${WKMEM_PREFIX}${sessionId}`, restored);
+    idbSet(`wkmem:${sessionId}`, restored);
 
     return restored;
   }
@@ -358,11 +384,11 @@ export class MemoryManager {
   /** Eliminar snapshot cognitivo */
   deleteCognitiveSnapshot(id: string): void {
     this.cognitiveSnapshots.delete(id);
-    storageRemove(`${SNAP_PREFIX}${id}`);
+    idbRemove(id);
   }
 
   private persistCognitiveSnapshot(snap: CognitiveSnapshot): void {
-    storageSet(`${SNAP_PREFIX}${snap.id}`, snap);
+    idbSet(snap.id, snap);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
