@@ -27,6 +27,7 @@ export type { AIConfig, SupabaseConfig, AIMessage, MistralModel } from "./ai";
 export type { AIProvider, AIRequest, AIProposal } from "./ai";
 export { NoopAIProvider, MistralAIProvider } from "./ai";
 export { authManager, type User, type AuthSession, type AuthConfig } from "./auth";
+// ADR 0004: AuthConfig ahora usa remoteUrl/remoteKey (aliases deprecated supabaseUrl/supabaseKey)
 export { memoryManager, MemoryManager } from "./memory";
 export type { HierarchicalMemoryResult } from "./memory";
 
