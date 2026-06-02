@@ -1,7 +1,7 @@
 # 0006. Operation Journal Persistence and Core Integration
 
 **Fecha:** 2026-06-02
-**Estado:** 🟡 proposed
+**Estado:** ✅ accepted
 
 ## Contexto
 

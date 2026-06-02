@@ -13,7 +13,7 @@
 |---|---|---|---|---|
 | `snapshot-store` | ✅ done | Mavis | — | 0001 |
 | `rollback-engine` | ✅ done | Mavis@cloud | `snapshot-store` | 0002 (accepted) |
-| `op-journal` | 🔵 in_progress | Manus | `rollback-engine` | — |
+| `op-journal` | ✅ done | Manus | `rollback-engine` | 0006 |
 | `spec-discrepancies` | ✅ done | Aria | — | 0003-0004 (accepted); 0005 fuera de alcance |
 
 ### Leyenda
