@@ -1,8 +1,8 @@
 # 0002. Quién actualiza `Transaction.status` después de un rollback
 
 **Fecha:** 2026-06-02
-**Estado:** 🟡 proposed
-**IA autora:** Mavis
+**Estado:** ✅ accepted
+**IA autora:** Mavis (propuesta) · Mavis@cloud (aceptación e implementación)
 **Módulos afectados:** `rollback-engine`, `transactions.ts`
 
 ---
@@ -110,7 +110,12 @@ Cuando el módulo `rollback-engine` se implemente:
 
 ## Estado
 
-🟡 **proposed** — pendiente de consenso. Si el `rollback-engine` se implementa
-siguiendo este path, el ADR pasa a `accepted` automáticamente. Si se elige el
-path alternativo (acoplar `snapshots.ts` con `transactions.ts`), hay que
-rechazarlo y abrir uno nuevo.
+✅ **accepted** — implementado el 2026-06-02 por Mavis@cloud en el módulo
+`rollback-engine`. Cambios concretos:
+
+- `rollback(snapshotId)` ahora devuelve `Promise<RollbackResult>` (discriminated union).
+- `transactions.ts → rollbackTransaction()` traduce el resultado a `Transaction.status`:
+  `success → "rolled_back"`, `failure → "rollback_failed"`.
+- `"rollback_failed"` añadido a `TransactionStatus` en `types.ts` (autorizado por este ADR).
+- `RollbackResult` y `RollbackFailure` viven en `types.ts`.
+- `snapshots.ts` NO importa de `transactions.ts` — la jerarquía de NO-GO-ZONES se respeta.

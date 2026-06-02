@@ -18,7 +18,7 @@
  *     Útil para checkpoints lógicos antes de operaciones estructurales.
  */
 
-import { Snapshot, FileNode } from "./types";
+import { Snapshot, FileNode, RollbackResult, RollbackFailure } from "./types";
 import { snapshotStore, SnapshotRecord } from "./snapshotStore";
 import { webFilesystemProvider } from "./WebFilesystemProvider";
 
@@ -161,24 +161,93 @@ export class SnapshotManager {
   /**
    * Restaura los archivos de un snapshot.
    *
-   * TODO (siguiente paso — rollback):
-   *   - Leer Map<path, content> desde snapshotStore.getSnapshotFileContents(id)
-   *   - Para cada par, llamar a webFilesystemProvider.writeFile(path, content)
-   *   - Validar post-condición (el FS refleja el contenido del snapshot)
-   *   - Devolver true si todo OK, false si falló
-   *   - Si falla a mitad, intentar rollback parcial
+   * Flujo (ver SPEC `rollback-engine` y ADR 0002):
+   *   1) Lee el contenido desde IndexedDB vía `snapshotStore.getSnapshotFileContents(id)`.
+   *   2) Para cada par [path, content] llama a `webFilesystemProvider.writeFile`.
+   *   3) Verifica la post-condición releyendo cada archivo y comparando contenido.
+   *   4) Devuelve un `RollbackResult` discriminado por `success`.
+   *
+   * Contrato:
+   *   - Si el snapshot no existe → throw `Error("snapshot not found: <id>")`.
+   *   - Si el FS provider no está listo → throw `Error("filesystem provider not available")`.
+   *   - En cualquier otro caso (fallo individual de write/verify) NO throw;
+   *     se acumula en `failedFiles` y se devuelve `success: false`.
+   *   - Snapshot vacío (Map sin entradas) → `{ success: true, restoredFiles: [], snapshotId }`.
+   *
+   * Decisión: este módulo NO actualiza `Transaction.status`. Es responsabilidad
+   * del caller (`transactions.ts → rollbackTransaction`) traducir el resultado.
    */
-  async rollback(snapshotId: string): Promise<boolean> {
+  async rollback(snapshotId: string): Promise<RollbackResult> {
+    // Pre-condición 1: el snapshot debe existir (al menos en nuestra caché).
     const snapshot = this.getSnapshot(snapshotId);
     if (!snapshot) {
-      console.error(`[SnapshotManager] Snapshot ${snapshotId} not found`);
+      throw new Error(`snapshot not found: ${snapshotId}`);
+    }
+
+    // Pre-condición 2: el FS provider debe estar listo.
+    if (!webFilesystemProvider.isReady()) {
+      throw new Error("filesystem provider not available");
+    }
+
+    // 1) Leer contenido desde IndexedDB.
+    const files = await this.loadSnapshotFiles(snapshotId);
+
+    // Snapshot vacío → caso válido (checkpoint lógico), no es error.
+    if (files.size === 0) {
+      return { success: true, restoredFiles: [], snapshotId };
+    }
+
+    const restoredFiles: string[] = [];
+    const failedFiles: RollbackFailure[] = [];
+
+    // 2) Escribir cada archivo. Los fallos individuales NO abortan el batch.
+    for (const [path, content] of files.entries()) {
+      const writeResult = await webFilesystemProvider.writeFile(path, content);
+      if (!writeResult.success) {
+        failedFiles.push({
+          path,
+          reason: "write_error",
+          error: writeResult.error,
+        });
+        continue;
+      }
+
+      // 3) Verificar post-condición (re-leer y comparar).
+      const ok = await this.verifyRestoration(path, content);
+      if (!ok) {
+        failedFiles.push({
+          path,
+          reason: "verify_error",
+        });
+        continue;
+      }
+
+      restoredFiles.push(path);
+    }
+
+    // 4) Construir resultado discriminado.
+    if (failedFiles.length === 0) {
+      return { success: true, restoredFiles, snapshotId };
+    }
+    return { success: false, restoredFiles, failedFiles, snapshotId };
+  }
+
+  /**
+   * Verifica que el contenido en disco de un archivo coincide con el esperado.
+   * Método interno pero exportado para que pueda probarse de forma aislada.
+   *
+   * Política: NO reintenta. Si la verificación falla, devuelve `false` y
+   * el caller registra `verify_error` en el `RollbackResult`.
+   */
+  async verifyRestoration(path: string, expectedContent: string): Promise<boolean> {
+    try {
+      const readResult = await webFilesystemProvider.readFile(path);
+      if (!readResult.success) return false;
+      if (readResult.content === undefined) return false;
+      return readResult.content === expectedContent;
+    } catch {
       return false;
     }
-    console.warn(
-      `[SnapshotManager] rollback(${snapshotId}) — pendiente de implementar (siguiente paso). ` +
-        `El contenido del snapshot está disponible en IndexedDB vía snapshotStore.`
-    );
-    return false;
   }
 
   /** Borra un snapshot de la caché Y de IndexedDB. */

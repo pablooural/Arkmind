@@ -176,7 +176,17 @@ export class TransactionManager {
   }
 
   /**
-   * Rollback de transacción
+   * Rollback de transacción.
+   *
+   * Decisión arquitectural (ADR 0002): el caller traduce el `RollbackResult`
+   * (discriminated union) a `Transaction.status`. Este módulo NO se acopla
+   * con `snapshots.ts`; mantiene su responsabilidad: restaurar + reportar.
+   *
+   * - `result.success === true`            → `transaction.status = "rolled_back"`
+   * - `result.success === false`           → `transaction.status = "rollback_failed"`
+   *
+   * Si `snapshotManager.rollback()` lanza (snapshot no existe o FS no listo),
+   * se propaga el error. Pre-condiciones rotas no se silencian.
    */
   async rollbackTransaction(transactionId: string): Promise<boolean> {
     const transaction = this.transactions.get(transactionId);
@@ -184,14 +194,15 @@ export class TransactionManager {
 
     if (!transaction.snapshotId) return false;
 
-    // Restaurar desde snapshot
-    const success = await snapshotManager.rollback(transaction.snapshotId);
+    const result = await snapshotManager.rollback(transaction.snapshotId);
 
-    if (success) {
+    if (result.success) {
       transaction.status = "rolled_back";
+      return true;
+    } else {
+      transaction.status = "rollback_failed";
+      return false;
     }
-
-    return success;
   }
 
   /**
