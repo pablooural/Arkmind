@@ -21,10 +21,10 @@
       "adr": "0002 (accepted)"
     },
     "op-journal": {
-      "status": "pending",
-      "claimedBy": null,
-      "claimedAt": null,
-      "branch": null,
+      "status": "in_progress",
+      "claimedBy": "Manus",
+      "claimedAt": "2026-06-02T12:15:00Z",
+      "branch": "ia/manus/op-journal",
       "dependsOn": ["rollback-engine"],
       "adr": null
     },
