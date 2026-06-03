@@ -22,6 +22,23 @@
 └──────────────────────────────────────────────────────────────┘
                             ↓
 ┌──────────────────────────────────────────────────────────────┐
+│  1.5 PRE-CLAIM CHECK — antes de reclamar un módulo           │
+│     1. Leer README del proyecto (presentación y orientaciones)│
+│     2. Leer STATUS.md del módulo objetivo                    │
+│     3. Verificar rama actual:                                │
+│        git branch -a && git fetch --all --prune               │
+│     4. Verificar si hay trabajo pendiente de merge:          │
+│        git log --oneline --graph --all -20                    │
+│        abrir PRs en GitHub y mirar si hay alguno abierto      │
+│     5. Recién después, reclamar (paso 2)                      │
+│                                                                │
+│     ¿Por qué? Evita:                                          │
+│       - reclamar un módulo que ya hizo otra IA                │
+│       - pisar trabajo pendiente de merge                      │
+│       - empezar sin saber el estado real del módulo           │
+└──────────────────────────────────────────────────────────────┘
+                            ↓
+┌──────────────────────────────────────────────────────────────┐
 │  2. CLAIM                                                     │
 │     • Editar .arkmind/STATE.json:                             │
 │         modules["<nombre>"].status = "in_progress"            │
