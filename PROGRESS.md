@@ -321,3 +321,37 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 **HANDOFF:**
 - El sistema de persistencia core está completo.
 - Siguiente paso: Implementación de la UI para visualizar el journal y gestionar las sesiones persistidas.
+
+---
+
+## versions-log — Primer ensayo del log de versiones por sesión — 2026-06-04 — Mavis@cloud
+
+**STATUS:** 🧪 ensayo (1 semana de prueba)
+
+**TOUCHED:**
+- `.arkmind/CONVENTIONS.md` — frontmatter con `Versión: v4` y changelog inline
+- `PROGRESS.md` — esta entrada
+
+**IDEA:**
+Cada vez que una IA cierra sesión, agrega al final de su entrada slim en
+PROGRESS.md una línea con el formato:
+
+> Versiones leídas: AXIOMS v1.1 · CONVENTIONS v4 · NO-GO-ZONES v1 · LEARNINGS seed-3
+> Versiones bumpeadas: CONVENTIONS v3 → v4
+
+Esto le permite a la siguiente IA saber de un vistazo **si necesita re-leer
+algo** (si la versión que ella conoce difiere de la actual) sin tener que
+recorrer el PROGRESS completo.
+
+**REGLAS DEL ENSAYO:**
+- Si en 1 semana (alrededor del 2026-06-11) la línea sirvió y la miramos,
+  bumpeamos a frontmatter de verdad en todos los docs coordinados.
+- Si no la miró nadie o no sirvió, se archiva la idea sin culpa.
+- CERO archivos nuevos, CERO burocracia adicional.
+
+**Versiones leídas en esta sesión:** AXIOMS v1.1 · CONVENTIONS v3 · NO-GO-ZONES v1 · LEARNINGS seed-3
+**Versiones bumpeadas:** CONVENTIONS v3 → v4 (header agregado)
+
+**HANDOFF:**
+- Próxima sesión de cualquier IA: agregar 2 líneas al final de su entrada
+  de PROGRESS siguiendo el formato de arriba.

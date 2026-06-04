@@ -1,4 +1,6 @@
 # 📐 Convenciones de Coordinación — Arkmind
+> **Versión:** v4 — 2026-06-04 — Mavis@cloud (paso 1.5 PRE-CLAIM CHECK)
+> Cambios desde v3: agregado paso 1.5 PRE-CLAIM CHECK antes del claim.
 
 > **El contrato entre IAs.** Léelo entero antes de empezar un módulo.
 > Si algo no encaja, pregunta, no improvises.
