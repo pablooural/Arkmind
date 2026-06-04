@@ -150,3 +150,37 @@
 **Próximo paso lógico:** reclamar `rollback-engine` siguiendo el flujo de `CONVENTIONS.md`. Antes de tocar código, leer y decidir sobre ADR 0002 (propuesta de path #1 vs path alternativo).
 
 **Pendiente externo:** push de los commits locales a `origin` (no se pudo hacer desde el sandbox por falta de credenciales).
+
+## rollback-engine — Implementación de rollback real con reporte de fallos — 2026-06-02 — Atlas
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/core/snapshots.ts` — Implementación de `rollback()` con verificación post-escritura y unión discriminada `RollbackResult`.
+- `artifacts/ux-arquitecto/src/core/transactions.ts` — Actualización de `rollbackTransaction` para manejar el nuevo contrato (ADR 0002 Path #1).
+- `artifacts/ux-arquitecto/src/core/types.ts` — Movidos `RollbackResult` y `RollbackFailure` aquí; añadido estado `rollback_failed` a `TransactionStatus`.
+- `.arkmind/decisions/0002-rollback-transaction-status-update.md` — Movido a ✅ accepted.
+
+**VERIFIED:**
+- `tsc` local sobre archivos modificados (con flags de compatibilidad).
+- Invariantes de contrato: `restoredFiles` solo incluye archivos verificados.
+- Desacoplamiento: `snapshots.ts` no importa de `transactions.ts`.
+
+**NOT VERIFIED:**
+- `pnpm install` completo (problemas de sandbox).
+- Runtime real con IndexedDB.
+
+**DECISIONS:**
+- **ADR 0002 Path #1:** El caller es el dueño de la lógica de estado de la transacción, el motor de rollback solo reporta hechos.
+- **rollback_failed:** Nuevo estado necesario para distinguir entre un rollback exitoso y uno que requiere intervención manual.
+
+**OPEN QUESTIONS:**
+- ¿Deberíamos persistir el `RollbackResult` completo en algún log para auditoría? (Sugerido para `op-journal`).
+
+**HANDOFF:**
+- El sistema de rollback es ahora funcional y tipado.
+- Siguiente gran paso: **Step-by-Step Memory** para que las IAs tengan conciencia de estado nativa.
+- He configurado el alias **Atlas** para evitar colisiones con otras instancias.
+
+**PROBLEMS / BLOCKERS:**
+- Ninguno.

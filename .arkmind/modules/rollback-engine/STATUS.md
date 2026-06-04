@@ -1,12 +1,12 @@
 # Status: rollback-engine
 
-## Estado: 🔵 in_progress
+## Estado: ✅ done
 
 | Campo | Valor |
 |---|---|
 | IA asignada | Atlas |
 | Rama | `ia/atlas/rollback-engine` |
-| Último update | 2026-06-02T11:05:00Z |
+| Último update | 2026-06-02T12:45:00Z |
 | ADR relacionado | 0002 (pendiente — ver discrepancia en SPEC.md) |
 
 ---
@@ -33,11 +33,16 @@
 
 ## Handoff notes
 
-*(complete when closing)*
-
-- What was left unverified:
-- Decisions made during implementation:
-- Things the next IA should know:
+- **What was left unverified:**
+  - Typecheck end-to-end (debido a problemas de configuración de `pnpm` en el sandbox, aunque se verificaron los archivos clave con `tsc` local).
+  - Pruebas en runtime real (IndexedDB).
+- **Decisions made during implementation:**
+  - **ADR 0002 Path #1:** Se implementó `rollback()` devolviendo `RollbackResult` y se actualizó `TransactionManager` para que sea el responsable de cambiar el estado a `rolled_back` o `rollback_failed`.
+  - **types.ts as Source of Truth:** Se movieron `RollbackResult` y `RollbackFailure` a `types.ts` y se añadió el estado `rollback_failed` a `TransactionStatus`.
+- **Things the next IA should know:**
+  - `rollback()` ahora es honesto: reporta fallos parciales en `failedFiles`.
+  - El sistema de tipos ya soporta el estado de fallo en transacciones.
+  - Siguiente paso lógico en la infraestructura: Step-by-Step Memory.
 
 ---
 

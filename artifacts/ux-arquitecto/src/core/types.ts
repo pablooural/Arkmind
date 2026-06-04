@@ -223,13 +223,34 @@ export interface Snapshot {
   storePath: string;
 }
 
+export type RollbackFailure = {
+  path: string;
+  reason: "write_error" | "verify_error" | "not_found";
+  error?: unknown;
+};
+
+export type RollbackResult =
+  | { success: true; restoredFiles: string[]; snapshotId: string }
+  | {
+      success: false;
+      restoredFiles: string[];
+      failedFiles: RollbackFailure[];
+      snapshotId: string;
+    };
+
 /** Transacción atómica sobre recursos — siempre en sandbox primero */
 export interface Transaction {
   id: string;
   type: "read" | "write" | "delete" | "move" | "create" | "branch";
   targetPath: string;
   snapshotId?: string;
-  status: "pending" | "validated" | "executed" | "confirmed" | "rolled_back";
+  status:
+    | "pending"
+    | "validated"
+    | "executed"
+    | "confirmed"
+    | "rolled_back"
+    | "rollback_failed";
   createdAt: number;
   executedAt?: number;
 }

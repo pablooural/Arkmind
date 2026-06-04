@@ -185,13 +185,19 @@ export class TransactionManager {
     if (!transaction.snapshotId) return false;
 
     // Restaurar desde snapshot
-    const success = await snapshotManager.rollback(transaction.snapshotId);
+    const result = await snapshotManager.rollback(transaction.snapshotId);
 
-    if (success) {
+    if (result.success) {
       transaction.status = "rolled_back";
+    } else {
+      transaction.status = "rollback_failed";
+      console.error(
+        `[TransactionManager] Rollback failed for ${transactionId}:`,
+        "failedFiles" in result ? result.failedFiles : "unknown error"
+      );
     }
 
-    return success;
+    return result.success;
   }
 
   /**

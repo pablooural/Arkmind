@@ -1,7 +1,7 @@
 # 0002. Quién actualiza `Transaction.status` después de un rollback
 
 **Fecha:** 2026-06-02
-**Estado:** 🟡 proposed
+**Estado:** ✅ accepted
 **IA autora:** Mavis
 **Módulos afectados:** `rollback-engine`, `transactions.ts`
 

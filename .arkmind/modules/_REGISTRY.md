@@ -12,7 +12,7 @@
 | Módulo | Estado | IA actual | Depende de | ADR |
 |---|---|---|---|---|
 | `snapshot-store` | ✅ done | Mavis | — | 0001 |
-| `rollback-engine` | 🟡 pending | — | `snapshot-store` | 0002 (pendiente) |
+| `rollback-engine` | ✅ done | Atlas | `snapshot-store` | 0002 |
 | `op-journal` | 🟡 pending | — | `rollback-engine` | — |
 | `spec-discrepancies` | 🟡 pending | — | — | — |
 
