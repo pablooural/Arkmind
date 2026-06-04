@@ -17,6 +17,7 @@
  *     semántica observable (true solo si Mistral tiene apiKey) se mantiene.
  */
 import { StructuredMessage } from "./types";
+import { ActiveContext, contextEnricher } from "./ia-context-bridge";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Public types (existentes — backwards-compat)
@@ -56,10 +57,11 @@ export interface AIMessage {
  * Tipos de pedido que un caller puede hacer a la IA.
  * El manager dispatcha según `kind`; el provider decide cómo responder.
  */
-export type AIRequest =
+export type AIRequest = (
   | { kind: "structural_change"; context: string; diff?: string }
   | { kind: "explain"; target: string; question: string }
-  | { kind: "summarize"; content: string };
+  | { kind: "summarize"; content: string }
+) & { activeContext?: ActiveContext };
 
 /**
  * Propuesta que devuelve la IA. Es siempre declarativa: el caller decide si
@@ -155,32 +157,44 @@ export class MistralAIProvider implements AIProvider {
       };
     }
 
-    // Stub estructurado: la respuesta tiene la forma correcta de AIProposal
-    // según el kind del request, pero no consulta a Mistral. La implementación
-    // real de la llamada HTTP queda fuera del scope de spec-discrepancies.
+    // Log de contexto para depuración (según diseño)
+    if (request.activeContext) {
+      console.log(`[MistralAIProvider] Contexto enriquecido recibido:`, {
+        path: request.activeContext.activeContextPath,
+        resource: request.activeContext.activeResource,
+        hasCognitive: !!request.activeContext.cognitiveContext,
+        hasSession: !!request.activeContext.activeSession
+      });
+    }
+
+    // Stub estructurado enriquecido con contexto
+    const ctxLabel = request.activeContext?.activeResource 
+      ? ` (sobre ${request.activeContext.activeResource})` 
+      : "";
+
     switch (request.kind) {
       case "structural_change":
         return {
           kind: "suggestion",
-          title: "Cambio estructural propuesto",
+          title: "Cambio estructural propuesto" + ctxLabel,
           rationale:
             `Stub: revisaría el cambio sobre contexto (${truncate(request.context, 60)})` +
             (request.diff ? ` y diff de ${request.diff.length} chars` : "") +
-            `. Implementación real pendiente.`,
+            `. Implementación real pendiente con contexto enriquecido.`,
           patch: undefined,
         };
       case "explain":
         return {
           kind: "explanation",
           text:
-            `Stub: explicaría \`${truncate(request.target, 40)}\` respondiendo a ` +
+            `Stub: explicaría \`${truncate(request.target, 40)}\`${ctxLabel} respondiendo a ` +
             `"${truncate(request.question, 60)}". Implementación real pendiente.`,
         };
       case "summarize":
         return {
           kind: "summary",
           text:
-            `Stub: resumiría ${request.content.length} caracteres. ` +
+            `Stub: resumiría ${request.content.length} caracteres${ctxLabel}. ` +
             `Implementación real pendiente.`,
         };
     }
@@ -319,6 +333,18 @@ export class AIManager {
    */
   isConfigured(): boolean {
     return this.provider.isAvailable();
+  }
+
+  /**
+   * Envía una petición a la IA enriqueciéndola automáticamente con el contexto
+   * activo del runtime.
+   */
+  async propose(request: AIRequest): Promise<AIProposal> {
+    const enrichedRequest = {
+      ...request,
+      activeContext: request.activeContext || contextEnricher.captureActiveContext(),
+    };
+    return this.provider.propose(enrichedRequest);
   }
 }
 
