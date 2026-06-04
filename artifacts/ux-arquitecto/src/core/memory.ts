@@ -71,10 +71,11 @@ function emptyWorkingMemory(): WorkingMemory {
     focus: "",
     intent: "",
     activeResources: [],
-    constraints: [],
-    keyInsights: [],
-    openQuestions: [],
-    temporaryNotes: [],
+    stepState: {
+      currentStep: "init",
+      completedSteps: [],
+      status: "thinking",
+    },
     lastUpdated: Date.now(),
   };
 }
@@ -183,6 +184,26 @@ export class MemoryManager {
       version: (memory.version ?? 0) + 1,
     };
     storageSet(`${MEM_PREFIX}${memory.contextPath}`, updated);
+  }
+
+  /** Actualizar el paso actual y su estado en Working Memory */
+  async updateStep(
+    sessionId: string,
+    step: string,
+    status: StepState["status"]
+  ): Promise<WorkingMemory> {
+    const wm = this.getWorkingMemory(sessionId);
+    const stepState: StepState = {
+      ...wm.stepState,
+      currentStep: step,
+      status: status,
+    };
+
+    if (status === "done" && !stepState.completedSteps.includes(step)) {
+      stepState.completedSteps.push(step);
+    }
+
+    return this.updateWorkingMemory(sessionId, { stepState });
   }
 
   /** Actualizar campos de Context Memory (merge parcial) */
@@ -384,8 +405,18 @@ export class MemoryManager {
     lines.push("");
 
     // Working Memory
-    if (wm.focus || wm.intent) {
+    if (wm.focus || wm.intent || wm.stepState) {
       lines.push("### Estado Actual");
+      if (wm.stepState) {
+        lines.push(
+          `- **Paso actual:** ${wm.stepState.currentStep} (${wm.stepState.status})`
+        );
+        if (wm.stepState.completedSteps.length > 0) {
+          lines.push(
+            `- **Pasos completados:** ${wm.stepState.completedSteps.join(", ")}`
+          );
+        }
+      }
       if (wm.focus)  lines.push(`- **Foco:** ${wm.focus}`);
       if (wm.intent) lines.push(`- **Intención:** ${wm.intent}`);
       if (wm.activeResources.length > 0)

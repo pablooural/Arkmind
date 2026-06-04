@@ -5,10 +5,10 @@
   "currentFocus": "snapshot-store done · rollback-engine pending · op-journal pending · spec-discrepancies pending",
   "modules": {
     "step-memory": {
-      "status": "in_progress",
-      "claimedBy": "Atlas",
-      "claimedAt": "2026-06-02T12:55:00Z",
-      "branch": "ia/atlas/step-memory",
+      "status": "done",
+      "claimedBy": null,
+      "claimedAt": null,
+      "branch": null,
       "dependsOn": [],
       "adr": null
     },

@@ -289,6 +289,22 @@ export interface WorkingMemory {
  * Memoria persistente por ruta/contexto.
  * Sobrevive entre sesiones y se hereda jerárquicamente.
  */
+export interface StepState {
+  currentStep: string;
+  totalSteps?: number;
+  completedSteps: string[];
+  nextPlannedStep?: string;
+  status: "thinking" | "executing" | "verifying" | "blocked" | "done";
+}
+
+export interface WorkingMemory {
+  focus: string;
+  intent: string;
+  activeResources: string[];
+  stepState: StepState;
+  lastUpdated: number;
+}
+
 export interface ContextMemory {
   contextPath: string;
   purpose: string;

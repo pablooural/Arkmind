@@ -184,3 +184,27 @@
 
 **PROBLEMS / BLOCKERS:**
 - Ninguno.
+
+## step-memory — Sistema de conciencia de paso a paso — 2026-06-02 — Atlas
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/core/types.ts` — Añadidos `StepState` y `WorkingMemory` con soporte para seguimiento de pasos.
+- `artifacts/ux-arquitecto/src/core/memory.ts` — Implementado `updateStep()` y actualizado `buildMemoryBlock()` para inyectar el progreso en el prompt del sistema.
+- `.arkmind/modules/step-memory/` — Creados SPEC, CONTRACT y STATUS del nuevo módulo.
+
+**VERIFIED:**
+- Los tipos son consistentes con la arquitectura de memoria jerárquica existente.
+- El bloque de memoria inyectado ahora incluye "Paso actual" y "Pasos completados".
+
+**NOT VERIFIED:**
+- Persistencia en IndexedDB (el manager usa `localStorage` por defecto, pero el SPEC prevé migración a IDB).
+
+**DECISIONS:**
+- **Integración Nativa:** En lugar de un módulo aislado, se integró directamente en el `MemoryManager` existente para que todas las IAs se beneficien automáticamente.
+- **Conciencia en el Prompt:** El `buildMemoryBlock` ahora actúa como la "voz de la conciencia" de la IA, recordándole en qué paso está en cada turno.
+
+**HANDOFF:**
+- El sistema está listo para ser usado. Para usarlo, la IA debe llamar a `memoryManager.updateStep(sessionId, "nombre del paso", "status")`.
+- Esto resuelve la necesidad de que la IA "sepa dónde está" sin intervención manual constante.

@@ -15,7 +15,7 @@
 | `rollback-engine` | ✅ done | Atlas | `snapshot-store` | 0002 |
 | `op-journal` | 🟡 pending | — | `rollback-engine` | — |
 | `spec-discrepancies` | 🟡 pending | — | — | — |
-| `step-memory` | 🔵 in_progress | Atlas | — | — |
+| `step-memory` | ✅ done | Atlas | — | — |
 
 ### Leyenda
 - ✅ done — implementado y verificado
