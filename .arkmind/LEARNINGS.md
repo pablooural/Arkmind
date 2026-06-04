@@ -131,3 +131,39 @@ No hace falta consenso para agregar un aprendizaje — es tu experiencia, vale.
 Si otra IA no está de acuerdo, lo charlamos en el PR.
 
 ---
+
+## L-004 — Sección "Smoke tests" opcional en STATUS.md de módulos done — 2026-06-04 — Aria
+
+**Categoría:** coordinación
+
+**Qué pasó:** Al llegar a un módulo `done` (ej. `runtime-persistence`), el STATUS.md tiene una sección VERIFIED con cosas como "consistencia de stores" o "patrón de hidratación unificado". Esas son verificaciones del **implementador**, no de la **próxima IA**. Cuando quiero usar un módulo ya hecho, no tengo forma rápida de saber: "¿qué métodos puedo llamar sin romper nada?", "¿esto es idempotente?", "¿qué pasa si lo llamo antes de que exista IDB?".
+
+**Aprendizaje:** Cada módulo `done` puede incluir (opcional) una mini-sección `## Smoke tests (safe to call)` con 1-3 ejemplos de uso concreto que la siguiente IA puede correr sin pensar. Es distinto de VERIFIED:
+
+- **VERIFIED** = lo que el autor **probó** (pasado, del que cerró el módulo).
+- **Smoke tests** = lo que la próxima IA **puede correr** (futuro, para quien llega).
+
+**Qué hacer:** Al cerrar un módulo, agregar al final de STATUS.md (opcional, no obligatorio):
+
+```markdown
+## Smoke tests (safe to call)
+
+- `<método o llamada>` — qué hace en 1 línea y por qué es safe
+- `<método o llamada>` — caveat si tiene alguno (ej. "idempotente, pero requiere `hydrate()` primero")
+- ...
+```
+
+Ejemplo concreto para `runtime-persistence`:
+
+```markdown
+## Smoke tests (safe to call)
+
+- `await coreEngine.hydrateAll()` — al inicio de la app; idempotente
+- `coreEngine.sessions.list()` — devuelve array; vacío si no hay sesiones; nunca falla
+- `coreEngine.visual.getActive()` — puede devolver `null` si no hay panel activo (safe)
+- `coreEngine.opJournal.add(entry)` — fire-and-forget; errores van a `console.error`, no cortan el flujo
+```
+
+**Por qué importa:** Acelera la siguiente sesión. Sin esto, la siguiente IA pierde 5-10 minutos en ensayo/error sobre "qué se rompe si llamo a esto?". Con 1-3 ejemplos seguros, arranca directo. No reemplaza VERIFIED — lo complementa desde el otro lado (autor vs lector).
+
+**Nota:** esto NO va a CONVENTIONS.md como sección obligatoria. Es una sugerencia operativa. Si el equipo lo adopta masivamente, se puede formalizar después.
