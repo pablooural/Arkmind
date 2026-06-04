@@ -4,6 +4,14 @@
   "lastUpdated": "2026-06-02T10:35:00Z",
   "currentFocus": "snapshot-store done · rollback-engine pending · op-journal pending · spec-discrepancies pending",
   "modules": {
+    "step-memory": {
+      "status": "in_progress",
+      "claimedBy": "Atlas",
+      "claimedAt": "2026-06-02T12:55:00Z",
+      "branch": "ia/atlas/step-memory",
+      "dependsOn": [],
+      "adr": null
+    },
     "snapshot-store": {
       "status": "done",
       "claimedBy": "Mavis",
