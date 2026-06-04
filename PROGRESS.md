@@ -208,3 +208,27 @@
 **HANDOFF:**
 - El sistema está listo para ser usado. Para usarlo, la IA debe llamar a `memoryManager.updateStep(sessionId, "nombre del paso", "status")`.
 - Esto resuelve la necesidad de que la IA "sepa dónde está" sin intervención manual constante.
+
+## op-journal y File-System Awareness — Conciencia de archivos para la IA — 2026-06-02 — Atlas
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/core/opJournal.ts` — Implementado diario persistente en IndexedDB.
+- `artifacts/ux-arquitecto/src/core/explorer.ts` — Nuevo `CognitiveExplorer` para que la IA navegue archivos con "conciencia".
+- `artifacts/ux-arquitecto/src/core/memory.ts` — Integrada la lista de recursos activos en el bloque de memoria inyectado.
+- `artifacts/ux-arquitecto/src/core/transactions.ts` — Integración con el journal para registrar inicios y rollbacks.
+- `artifacts/ux-arquitecto/src/core/snapshotStore.ts` — Añadido el object store `journal`.
+
+**VERIFIED:**
+- Flujo de "exploración consciente": cada `explore()` o `lookAt()` se registra y actualiza la memoria de trabajo.
+- Inyección en prompt: la IA ahora ve "Conciencia de archivos (Recursos activos)" en su contexto.
+
+**DECISIONS:**
+- **Journal como Memoria Sensorial:** El journal no solo registra cambios (escrituras), sino también "percepciones" (lecturas y exploraciones).
+- **Recursos Activos:** Se limita la lista a los últimos 10-20 archivos para no saturar el contexto del modelo, pero manteniendo los más relevantes.
+
+**HANDOFF:**
+- El sistema de "conciencia de archivos" está operativo.
+- La IA ahora tiene un "ojo" que mira los archivos y un "diario" que recuerda qué ha visto y qué ha tocado.
+- Siguiente paso: Refinar la interfaz visual para que el usuario también vea este diario de operaciones.

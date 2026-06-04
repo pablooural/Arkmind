@@ -11,6 +11,7 @@
 
 import { Transaction } from "./types";
 import { snapshotManager } from "./snapshots";
+import { opJournal } from "./opJournal";
 
 // ============ TIPOS LOCALES (no exportados) ============
 
@@ -84,7 +85,18 @@ export class TransactionManager {
 
     this.transactions.set(id, transaction);
 
-    // 3. Validar operación
+    // 3. Registrar en el journal
+    await opJournal.log({
+      type: type as any,
+      path: targetPath,
+      transactionId: id,
+      snapshotId: snapshot.id,
+      metadata: {
+        summary: `Inicio de transacción ${type} en ${targetPath}`,
+      },
+    });
+
+    // 4. Validar operación
     await this.validateTransaction(id);
 
     return transaction;
@@ -196,6 +208,19 @@ export class TransactionManager {
         "failedFiles" in result ? result.failedFiles : "unknown error"
       );
     }
+
+    // Registrar el rollback en el journal
+    await opJournal.log({
+      type: "move",
+      path: transaction.targetPath,
+      transactionId: transaction.id,
+      snapshotId: transaction.snapshotId,
+      metadata: {
+        summary: `Rollback de transacción ${transaction.id}`,
+        success: result.success,
+        restoredFiles: result.restoredFiles.length,
+      },
+    });
 
     return result.success;
   }

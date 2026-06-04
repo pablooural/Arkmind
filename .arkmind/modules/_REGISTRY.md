@@ -13,7 +13,7 @@
 |---|---|---|---|---|
 | `snapshot-store` | ✅ done | Mavis | — | 0001 |
 | `rollback-engine` | ✅ done | Atlas | `snapshot-store` | 0002 |
-| `op-journal` | 🟡 pending | — | `rollback-engine` | — |
+| `op-journal` | ✅ done | Atlas | `rollback-engine` | — |
 | `spec-discrepancies` | 🟡 pending | — | — | — |
 | `step-memory` | ✅ done | Atlas | — | — |
 

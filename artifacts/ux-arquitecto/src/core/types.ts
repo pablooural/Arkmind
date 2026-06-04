@@ -238,6 +238,22 @@ export type RollbackResult =
       snapshotId: string;
     };
 
+/** Entrada en el diario de operaciones */
+export interface JournalEntry {
+  id: string;
+  timestamp: number;
+  type: "write" | "delete" | "move" | "create" | "read" | "explore";
+  path: string;
+  transactionId?: string;
+  snapshotId?: string;
+  metadata?: {
+    summary?: string;
+    fileCount?: number;
+    error?: string;
+    [key: string]: unknown;
+  };
+}
+
 /** Transacción atómica sobre recursos — siempre en sandbox primero */
 export interface Transaction {
   id: string;

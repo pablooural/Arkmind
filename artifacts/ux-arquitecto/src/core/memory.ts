@@ -406,7 +406,7 @@ export class MemoryManager {
 
     // Working Memory
     if (wm.focus || wm.intent || wm.stepState) {
-      lines.push("### Estado Actual");
+      lines.push("### Estado Cognitivo y de Archivos");
       if (wm.stepState) {
         lines.push(
           `- **Paso actual:** ${wm.stepState.currentStep} (${wm.stepState.status})`
@@ -419,8 +419,10 @@ export class MemoryManager {
       }
       if (wm.focus)  lines.push(`- **Foco:** ${wm.focus}`);
       if (wm.intent) lines.push(`- **Intención:** ${wm.intent}`);
-      if (wm.activeResources.length > 0)
-        lines.push(`- **Recursos activos:** ${wm.activeResources.join(", ")}`);
+      if (wm.activeResources.length > 0) {
+        lines.push("- **Conciencia de archivos (Recursos activos):**");
+        wm.activeResources.slice(-10).forEach(r => lines.push(`  - ${r}`));
+      }
       if (wm.constraints.length > 0)
         lines.push(`- **Restricciones:** ${wm.constraints.join("; ")}`);
       if (wm.keyInsights.length > 0) {

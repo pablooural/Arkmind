@@ -28,7 +28,7 @@
       "adr": "0002"
     },
     "op-journal": {
-      "status": "pending",
+      "status": "done",
       "claimedBy": null,
       "claimedAt": null,
       "branch": null,

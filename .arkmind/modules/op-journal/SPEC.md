@@ -1,58 +1,73 @@
 # Module: op-journal
 
 **Fecha de creación:** 2026-06-02
-**Paso relacionado:** 2 (bonus) o 3
-**IA autora del spec:** Mavis (pendiente de detallar)
-**Estado:** 🟡 pending — sin reclamar
+**IA autora del spec:** Atlas
+**Estado:** 🔵 in_progress
 
 ---
 
-## What this module does (TBD)
+## What this module does
 
-Implements the **Operation Journal** from the spec (punto 10):
+El `op-journal` es el registro histórico inmutable (en la medida de lo posible) de todas las operaciones que modifican el estado del sistema. Su propósito es proporcionar una auditoría clara y permitir reconstrucciones de estado complejas.
 
-> Registro cronológico completo: operación, timestamp, archivos afectados,
-> contexto, resultado, snapshot asociado.
+Cada entrada en el journal debe contener:
+- `timestamp`: Cuándo ocurrió.
+- `operationType`: Qué se hizo (write, delete, move, etc.).
+- `path`: Sobre qué recurso.
+- `transactionId`: Vínculo con la transacción.
+- `snapshotId`: Vínculo con el estado previo (si aplica).
+- `status`: Éxito o fallo de la operación.
 
-Records every destructive operation (write, delete, refactor) with enough
-metadata to reconstruct the full history. Persisted in IndexedDB (same DB,
-separate object store).
+---
+
+## Public interface
+
+### Journal Entry Type (to be moved to types.ts)
+
+```typescript
+export interface JournalEntry {
+  id: string;
+  timestamp: number;
+  type: "write" | "delete" | "move" | "create";
+  path: string;
+  transactionId: string;
+  snapshotId?: string;
+  metadata?: Record<string, unknown>;
+}
+```
+
+### Main Manager
+
+```typescript
+export class OpJournal {
+  async log(entry: Omit<JournalEntry, "id" | "timestamp">): Promise<string>;
+  async list(filter?: { path?: string; type?: string }): Promise<JournalEntry[]>;
+  async getEntry(id: string): Promise<JournalEntry | null>;
+}
+```
 
 ---
 
 ## Files this module CAN touch
 
-TBD — expected:
 ```
-artifacts/ux-arquitecto/src/core/opJournal.ts   ← new
-artifacts/ux-arquitecto/src/core/index.ts        ← export
-artifacts/ux-arquitecto/src/core/snapshotStore.ts  ← add new object store (via ADR)
-```
-
-## Files this module CANNOT touch
-
-```
-artifacts/ux-arquitecto/src/core/types.ts
-artifacts/ux-arquitecto/src/core/snapshots.ts
-artifacts/ux-arquitecto/src/core/transactions.ts
-artifacts/ux-arquitecto/src/core/WebFilesystemProvider.ts
+artifacts/ux-arquitecto/src/core/opJournal.ts   ← Nuevo archivo para el manager
+artifacts/ux-arquitecto/src/core/types.ts       ← Añadir tipos de Journal
+artifacts/ux-arquitecto/src/core/index.ts       ← Exportar el journal
+artifacts/ux-arquitecto/src/core/snapshotStore.ts ← Añadir el object store 'journal'
 ```
 
 ---
 
-## Dependencies
+## Behavior on errors
 
-- `snapshotStore` — to read snapshot metadata for the journal entry
-- `WebFilesystemProvider` — maybe, to read files for diff calculation (TBD)
-
----
-
-## Behavior
-
-- Hook into `transactions.ts` (or use it as caller) to log every transaction
-- Provide a `queryJournal(filter)` API to retrieve history
-- Provide a `clearJournal()` for testing/reset
+- Si falla la escritura en el journal, la operación principal NO debe bloquearse, pero debe emitirse un warning serio en consola.
+- El journal debe ser capaz de recuperarse de corrupciones menores en IndexedDB.
 
 ---
 
-*This is a stub. The next IA should fill in the details before claiming.*
+## Notes for the implementing IA
+
+- El journal debe usar un object store dedicado en la base de datos `arkmind_runtime`.
+- Las consultas deben ser eficientes (usar índices por `path` y `timestamp`).
+- Este módulo es crítico para el futuro sistema de "undo/redo" multi-nivel.

@@ -26,6 +26,8 @@ export type { AIConfig, SupabaseConfig, AIMessage, MistralModel } from "./ai";
 export { authManager, type User, type AuthSession, type AuthConfig } from "./auth";
 export { memoryManager, MemoryManager } from "./memory";
 export type { HierarchicalMemoryResult } from "./memory";
+export { opJournal, OpJournal } from "./opJournal";
+export { cognitiveExplorer, CognitiveExplorer } from "./explorer";
 
 // Re-export managers como singleton para uso global
 import { snapshotManager } from "./snapshots";
@@ -38,6 +40,7 @@ import { visualManager } from "./visual";
 import { aiManager } from "./ai";
 import { authManager } from "./auth";
 import { memoryManager } from "./memory";
+import { opJournal } from "./opJournal";
 
 export const coreEngine = {
   snapshots: snapshotManager,
@@ -50,4 +53,6 @@ export const coreEngine = {
   ai: aiManager,
   auth: authManager,
   memory: memoryManager,
+  journal: opJournal,
+  explorer: cognitiveExplorer,
 };
