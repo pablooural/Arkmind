@@ -57,6 +57,7 @@ export interface AIMessage {
  * El manager dispatcha según `kind`; el provider decide cómo responder.
  */
 export type AIRequest =
+  | { kind: "chat"; message: string; history?: AIMessage[]; context?: string; memoryBlock?: string }
   | { kind: "structural_change"; context: string; diff?: string }
   | { kind: "explain"; target: string; question: string }
   | { kind: "summarize"; content: string };
@@ -71,7 +72,8 @@ export type AIProposal =
   | { kind: "noop"; summary: string }
   | { kind: "suggestion"; title: string; rationale: string; patch?: string }
   | { kind: "explanation"; text: string }
-  | { kind: "summary"; text: string };
+  | { kind: "summary"; text: string }
+  | { kind: "insight_proposal"; content: string; importance: 1 | 2 | 3 | 4 | 5 };
 
 /**
  * Contrato público de cualquier provider de IA enchufable al runtime.
@@ -131,7 +133,6 @@ export class MistralAIProvider implements AIProvider {
   private config: AIConfig;
 
   constructor(config: AIConfig) {
-    // Copia defensiva para que mutaciones externas no afecten al provider
     this.config = { ...config };
   }
 
@@ -147,42 +148,84 @@ export class MistralAIProvider implements AIProvider {
     this.config = { ...this.config, model };
   }
 
-  async propose(request: AIRequest): Promise<AIProposal> {
-    if (!this.isAvailable()) {
-      return {
-        kind: "noop",
-        summary: "MistralAIProvider.propose() llamado sin apiKey configurada",
-      };
+  private buildSystemPrompt(request: AIRequest): string {
+    const base = "Eres el núcleo conversacional de Arkmind. Tu objetivo es ayudar al usuario a navegar y modificar su contexto actual. Respondé siempre en español, de forma concisa. Si detectas información clave, decisiones importantes o restricciones nuevas, puedes proponer un insight usando el formato JSON: {\"kind\": \"insight_proposal\", \"content\": \"...\", \"importance\": 3}.";
+    
+    let contextPart = "";
+    if (request.kind === "chat" && request.context) {
+      contextPart = `\n\nContexto del Recurso Activo:\n${request.context}`;
+    }
+    
+    let memoryPart = "";
+    if (request.kind === "chat" && request.memoryBlock) {
+      memoryPart = `\n\nMemoria del Runtime:\n${request.memoryBlock}`;
     }
 
-    // Stub estructurado: la respuesta tiene la forma correcta de AIProposal
-    // según el kind del request, pero no consulta a Mistral. La implementación
-    // real de la llamada HTTP queda fuera del scope de spec-discrepancies.
+    return `${base}${contextPart}${memoryPart}`;
+  }
+
+  async propose(request: AIRequest): Promise<AIProposal> {
+    if (!this.isAvailable()) {
+      return { kind: "noop", summary: "Mistral no configurado" };
+    }
+
+    // Si es chat, usamos la llamada real
+    if (request.kind === "chat") {
+      try {
+        const systemPrompt = this.buildSystemPrompt(request);
+        const messages = [
+          { role: "system", content: systemPrompt },
+          ...(request.history || []),
+          { role: "user", content: request.message }
+        ];
+
+        const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${this.config.apiKey}`
+          },
+          body: JSON.stringify({
+            model: this.config.model,
+            messages,
+            temperature: this.config.temperature ?? 0.7,
+            max_tokens: this.config.maxTokens ?? 2048
+          })
+        });
+
+        if (!response.ok) throw new Error(`Mistral error: ${response.statusText}`);
+        const data = await response.json() as any;
+        const content = data.choices?.[0]?.message?.content || "";
+
+        // Intentar parsear si la IA envió una propuesta estructurada en JSON
+        try {
+          if (content.includes('{"kind":')) {
+            const jsonStart = content.indexOf('{');
+            const jsonEnd = content.lastIndexOf('}') + 1;
+            const potentialJson = content.slice(jsonStart, jsonEnd);
+            const parsed = JSON.parse(potentialJson);
+            if (parsed.kind === "insight_proposal") {
+              return parsed as AIProposal;
+            }
+          }
+        } catch (e) {
+          // Si falla el parseo, devolver como texto normal
+        }
+
+        return { kind: "explanation", text: content };
+      } catch (error) {
+        return { kind: "noop", summary: `Error en Mistral: ${error}` };
+      }
+    }
+
+    // Otros kinds siguen siendo stubs por ahora o se pueden implementar después
     switch (request.kind) {
       case "structural_change":
-        return {
-          kind: "suggestion",
-          title: "Cambio estructural propuesto",
-          rationale:
-            `Stub: revisaría el cambio sobre contexto (${truncate(request.context, 60)})` +
-            (request.diff ? ` y diff de ${request.diff.length} chars` : "") +
-            `. Implementación real pendiente.`,
-          patch: undefined,
-        };
+        return { kind: "suggestion", title: "Propuesta", rationale: "Stub", patch: undefined };
       case "explain":
-        return {
-          kind: "explanation",
-          text:
-            `Stub: explicaría \`${truncate(request.target, 40)}\` respondiendo a ` +
-            `"${truncate(request.question, 60)}". Implementación real pendiente.`,
-        };
+        return { kind: "explanation", text: `Explicación de ${request.target}` };
       case "summarize":
-        return {
-          kind: "summary",
-          text:
-            `Stub: resumiría ${request.content.length} caracteres. ` +
-            `Implementación real pendiente.`,
-        };
+        return { kind: "summary", text: "Resumen stub" };
     }
   }
 }
@@ -319,6 +362,14 @@ export class AIManager {
    */
   isConfigured(): boolean {
     return this.provider.isAvailable();
+  }
+
+  /**
+   * Unificación: proponer una acción a la IA.
+   * Centraliza el flujo de llamadas y asegura que el provider reciba el contexto.
+   */
+  async propose(request: AIRequest): Promise<AIProposal> {
+    return this.provider.propose(request);
   }
 }
 

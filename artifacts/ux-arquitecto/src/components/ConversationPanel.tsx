@@ -42,7 +42,7 @@ interface ConversationPanelProps {
 
 export function ConversationPanel({ theme, sessionId, activeResource }: ConversationPanelProps) {
   const { session, messages, isLoading: sessionLoading, error: sessionError, sendMessage: sendSessionMessage } = useSession(sessionId);
-  const { sendMessage: sendAIMessage, isLoading: aiLoading, error: aiError, isConfigured } = useAI();
+  const { propose: sendAIPropose, isLoading: aiLoading, error: aiError, isConfigured } = useAI();
   const memory = useMemory({ sessionId, contextPath: activeResource?.path ?? "/" });
 
   const [input, setInput]               = useState("");
@@ -98,25 +98,25 @@ export function ConversationPanel({ theme, sessionId, activeResource }: Conversa
   const handleSend = useCallback(async () => {
     if (!input.trim() || !sessionId) return;
 
-    const resourceCtx: ResourceContext | null = activeResource
-      ? {
-          name: activeResource.name,
-          type: activeResource.type,
-          path: activeResource.path,
-          // Incluir contenido real si está disponible
-          fileContent: fileContent ?? undefined,
-        }
-      : null;
-
     const memBlock = memory.buildMemoryBlock();
+    
+    // Construir bloque de contexto manual
+    let contextStr = "";
+    if (activeResource) {
+      contextStr = `Recurso: ${activeResource.path}\n`;
+      if (fileContent) {
+        contextStr += `Contenido:\n${fileContent.slice(0, 5000)}`;
+      }
+    }
 
     if (isConfigured) {
-      await sendAIMessage(sessionId, input, resourceCtx, memBlock || null);
+      // USAR EL NUEVO FLUJO UNIFICADO (Manus@delta bridge)
+      await sendAIPropose(sessionId, input, contextStr, memBlock || undefined);
     } else {
       await sendSessionMessage(input);
     }
     setInput("");
-  }, [input, sessionId, activeResource, fileContent, memory, isConfigured, sendAIMessage, sendSessionMessage]);
+  }, [input, sessionId, activeResource, fileContent, memory, isConfigured, sendAIPropose, sendSessionMessage]);
 
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
