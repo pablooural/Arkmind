@@ -17,33 +17,49 @@ export default function Home() {
   const [sessionId, setSessionId] = useState<string | null>(null);
 
   useEffect(() => {
-    const workspace = workspaceManager.initializeWorkspace(
-      "workspace_main",
-      "UX Arquitecto",
-      "/home/user/projects"
-    );
+    const init = async () => {
+      // 1. Intentar hidratar estado previo desde IDB
+      const { coreEngine } = await import("@/core");
+      await coreEngine.hydrateAll();
 
-    const cognitiveContext = cognitiveManager.createContext("/home/user/projects", "architecture");
-    const visualContext = visualManager.createContext("panel_chat", "/home/user/projects");
+      // 2. Inicializar workspace (singleton)
+      const workspace = workspaceManager.initializeWorkspace(
+        "workspace_main",
+        "UX Arquitecto",
+        "/home/user/projects"
+      );
 
-    const session = sessionManager.createSession(
-      "panel_chat",
-      "/home/user/projects",
-      cognitiveContext,
-      visualContext
-    );
+      // 3. Verificar si ya existe una sesión para el panel principal
+      let session = sessionManager.getSessionByPanel("panel_chat");
+      
+      if (!session) {
+        // Solo crear si no existe (primera vez)
+        const cognitiveContext = cognitiveManager.getContext("/home/user/projects") || 
+                                 cognitiveManager.createContext("/home/user/projects", "architecture");
+        
+        const visualContext = visualManager.getContext("panel_chat") || 
+                              visualManager.createContext("panel_chat", "/home/user/projects");
 
-    workspaceManager.attachSession("panel_chat", session);
-    setSessionId(session.id);
+        session = sessionManager.createSession(
+          "panel_chat",
+          "/home/user/projects",
+          cognitiveContext,
+          visualContext
+        );
+        console.log("✓ Nueva sesión IA creada:", session.id);
+      } else {
+        console.log("✓ Sesión IA recuperada de persistencia:", session.id);
+      }
 
-    console.log("✓ Workspace inicializado:", workspace);
-    console.log("✓ Sesión IA creada:", session.id);
-
-    return () => {
-      sessionManager.destroySession(session.id);
-      cognitiveManager.clearContext("/home/user/projects");
-      visualManager.clearContext("panel_chat");
+      workspaceManager.attachSession("panel_chat", session);
+      setSessionId(session.id);
+      console.log("✓ Workspace inicializado:", workspace);
     };
+
+    init();
+
+    // Nota: Eliminamos el cleanup destructivo para mantener la persistencia entre refrescos.
+    // El cleanup ahora solo debería ser para suscripciones si las hubiera.
   }, []);
 
   return (
