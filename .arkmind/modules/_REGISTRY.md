@@ -87,4 +87,4 @@ Si la IA **NO tiene acceso al repo**, pegarle exactamente esto (en este orden):
 
 ---
 
-*Última actualización: 2026-06-02 — Aria (spec-discrepancies done, ADRs 0003+0004 accepted, Q2 resuelta, rama ia/aria/spec-discrepancies)*
+*Última actualización: 2026-06-06 — Aria (claim ia-context-bridge, rama ia/aria/ia-context-bridge)*

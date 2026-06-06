@@ -1,8 +1,8 @@
 {
   "project": "Arkmind",
   "schemaVersion": 2,
-  "lastUpdated": "2026-06-02T11:30:00Z",
-  "currentFocus": "runtime-persistence done (Manus@delta) · ADR 0005 accepted · All core persistence implemented",
+  "lastUpdated": "2026-06-06T15:40:00Z",
+  "currentFocus": "runtime-persistence done · ia-context-bridge in_progress (Aria, ADR 0007 en curso) — cierra el gap entre runtime-persistence y AIProvider.propose()",
   "modules": {
     "snapshot-store": {
       "status": "done",
@@ -44,6 +44,14 @@
       "branch": "ia/manus/runtime-persistence",
       "dependsOn": ["op-journal"],
       "adr": "0005 (accepted)"
+    },
+    "ia-context-bridge": {
+      "status": "in_progress",
+      "claimedBy": "Aria",
+      "claimedAt": "2026-06-06T15:40:00Z",
+      "branch": "ia/aria/ia-context-bridge",
+      "dependsOn": ["runtime-persistence"],
+      "adr": "0007 (en curso)"
     }
   },
   "openQuestions": [
@@ -95,6 +103,11 @@
       "date": "2026-06-02T11:30:00Z",
       "by": "Aria",
       "action": "spec-discrepancies done: AIProvider interface + NoopAIProvider (default) + MistralAIProvider en ai.ts, AuthConfig con remoteUrl/remoteKey + aliases deprecated en auth.ts, ADRs 0003 y 0004 accepted, Q2 resuelta"
+    },
+    {
+      "date": "2026-06-06T15:40:00Z",
+      "by": "Aria",
+      "action": "claim ia-context-bridge: refiné SPEC/CONTRACT a v0.1, ABR 0007 proposed. Gap concreto: AIRequest no recibe el state del runtime (workspace/cognitive/visual/session), la IA no sabe en qué archivo está el usuario"
     },
     {
       "date": "2026-06-01T14:00:00Z",
