@@ -1,12 +1,18 @@
 /**
  * ChatPanel Component (Panel A)
  * Panel de chat con sesiones IA contextuales
- * 
+ *
  * CAMBIOS CAPA 6:
  * - Conectado con useSession hook
  * - Renderiza StructuredMessage con 7 tipos
  * - Propuestas con botones Aceptar/Rechazar
  * - Mantiene estilo visual original
+ *
+ * T-009 (Mavis@cloud, 2026-06-06): agregar acción "Copiar al chat" sobre mensajes.
+ * - Botón aparece al hacer hover sobre un mensaje (o siempre en mobile)
+ * - Pega el contenido del mensaje en el input del chat (no lo envía)
+ * - Feedback visual de "Copiado" 1.5s
+ * - Scope: solo ChatPanel.tsx, sin tocar core/ ni hooks/
  */
 
 import { useState, useRef, useEffect } from "react";
@@ -14,7 +20,7 @@ import { useSession } from "@/hooks/useSession";
 import { useAI } from "@/hooks/useAI";
 import { StructuredMessage } from "@/core";
 import { Theme } from "@/types/theme";
-import { AlertCircle, CheckCircle, XCircle } from "lucide-react";
+import { AlertCircle, CheckCircle, XCircle, Copy, Check } from "lucide-react";
 
 interface ChatPanelProps {
   theme: Theme;
@@ -25,6 +31,8 @@ export function ChatPanel({ theme, sessionId }: ChatPanelProps) {
   const { session, messages, isLoading: sessionLoading, error: sessionError, sendMessage: sendSessionMessage } = useSession(sessionId);
   const { sendMessage: sendAIMessage, isLoading: aiLoading, error: aiError, isConfigured } = useAI();
   const [input, setInput] = useState("");
+  // T-009: id del mensaje cuyo botón "Copiado" se está mostrando. null = ninguno.
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const isLoading = sessionLoading || aiLoading;
   const error = sessionError || aiError;
@@ -36,7 +44,7 @@ export function ChatPanel({ theme, sessionId }: ChatPanelProps) {
   const handleSend = async () => {
     if (!input.trim()) return;
     if (!sessionId) return;
-    
+
     // Si AI está configurado, enviar a Mistral
     if (isConfigured) {
       await sendAIMessage(sessionId, input);
@@ -54,87 +62,156 @@ export function ChatPanel({ theme, sessionId }: ChatPanelProps) {
     }
   };
 
+  // T-009: handler de "Copiar al chat". Pega el contenido del mensaje en el input.
+  // NO envía, deja al usuario editar antes. Funciona con text/code/diff.
+  const handleCopyToChat = (msg: StructuredMessage) => {
+    // Solo ciertos tipos tienen contenido copiable como texto plano
+    if (msg.type !== "text" && msg.type !== "code" && msg.type !== "diff") {
+      return;
+    }
+
+    let contentToCopy = "";
+    if (msg.type === "text") {
+      contentToCopy = msg.content;
+    } else if (msg.type === "code") {
+      // code.path es opcional; si existe, lo agregamos como comentario arriba
+      contentToCopy = msg.path ? `// ${msg.path}\n${msg.content}` : msg.content;
+    } else {
+      // diff.path es obligatorio en el tipo diff
+      contentToCopy = `// ${msg.path}\n// Antes:\n${msg.before}\n// Después:\n${msg.after}`;
+    }
+
+    // Pegar en el input. Si ya hay algo, agregar nueva línea.
+    setInput((prev: string) => (prev ? `${prev}\n${contentToCopy}` : contentToCopy));
+    // Feedback visual
+    setCopiedMessageId(msg.id);
+    setTimeout(() => setCopiedMessageId(null), 1500);
+  };
+
+  // T-009: helper que renderiza el botón "Copiar al chat" si el mensaje lo soporta
+  const renderCopyButton = (msg: StructuredMessage) => {
+    // Solo ciertos tipos tienen contenido copiable como texto
+    if (msg.type !== "text" && msg.type !== "code" && msg.type !== "diff") {
+      return null;
+    }
+    const isCopied = copiedMessageId === msg.id;
+    return (
+      <button
+        onClick={() => handleCopyToChat(msg)}
+        title={isCopied ? "Copiado al input" : "Copiar al chat"}
+        aria-label={isCopied ? "Copiado al input" : "Copiar al chat"}
+        style={{
+          marginTop: "0.3rem",
+          padding: "0.2rem 0.5rem",
+          borderRadius: "4px",
+          background: isCopied ? `${theme.accent}30` : "transparent",
+          border: `1px solid ${theme.accent}30`,
+          color: isCopied ? theme.accent : theme.sub,
+          fontSize: "0.7rem",
+          cursor: "pointer",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.25rem",
+          opacity: 0.7,
+          transition: "opacity 0.15s, background 0.15s",
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+        onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
+      >
+        {isCopied ? <Check size={11} /> : <Copy size={11} />}
+        {isCopied ? "Copiado" : "Copiar al chat"}
+      </button>
+    );
+  };
+
   const renderMessage = (msg: StructuredMessage) => {
     const isUser = msg.role === "user";
+    const copyButton = renderCopyButton(msg);
 
     switch (msg.type) {
       case "text":
         return (
-          <div
-            style={{
-              maxWidth: "80%",
-              padding: "0.6rem 0.8rem",
-              borderRadius: isUser ? "12px 12px 3px 12px" : "12px 12px 12px 3px",
-              background: isUser ? `${theme.accent}22` : `${theme.surface}cc`,
-              border: `1px solid ${isUser ? theme.accent + "44" : theme.accent + "18"}`,
-              color: theme.text,
-              fontSize: "0.82rem",
-              lineHeight: 1.55,
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-            }}
-          >
-            {msg.content}
+          <div style={{ display: "flex", flexDirection: "column", maxWidth: "80%" }}>
+            <div
+              style={{
+                padding: "0.6rem 0.8rem",
+                borderRadius: isUser ? "12px 12px 3px 12px" : "12px 12px 12px 3px",
+                background: isUser ? `${theme.accent}22` : `${theme.surface}cc`,
+                border: `1px solid ${isUser ? theme.accent + "44" : theme.accent + "18"}`,
+                color: theme.text,
+                fontSize: "0.82rem",
+                lineHeight: 1.55,
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+              }}
+            >
+              {msg.content}
+            </div>
+            {copyButton}
           </div>
         );
 
       case "code":
         return (
-          <div
-            style={{
-              maxWidth: "85%",
-              padding: "0.6rem 0.8rem",
-              borderRadius: "8px",
-              background: "#1e1e1e",
-              border: `1px solid ${theme.accent}30`,
-              fontFamily: "'Courier New', monospace",
-              fontSize: "0.75rem",
-              color: "#d4d4d4",
-              overflow: "auto",
-            }}
-          >
-            {msg.path && (
-              <div style={{ fontSize: "0.7rem", color: "#858585", marginBottom: "0.5rem" }}>
-                {msg.path}
-              </div>
-            )}
-            <pre style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-              {msg.content}
-            </pre>
+          <div style={{ display: "flex", flexDirection: "column", maxWidth: "85%" }}>
+            <div
+              style={{
+                padding: "0.6rem 0.8rem",
+                borderRadius: "8px",
+                background: "#1e1e1e",
+                border: `1px solid ${theme.accent}30`,
+                fontFamily: "'Courier New', monospace",
+                fontSize: "0.75rem",
+                color: "#d4d4d4",
+                overflow: "auto",
+              }}
+            >
+              {msg.path && (
+                <div style={{ fontSize: "0.7rem", color: "#858585", marginBottom: "0.5rem" }}>
+                  {msg.path}
+                </div>
+              )}
+              <pre style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                {msg.content}
+              </pre>
+            </div>
+            {copyButton}
           </div>
         );
 
       case "diff":
         return (
-          <div
-            style={{
-              maxWidth: "85%",
-              padding: "0.6rem 0.8rem",
-              borderRadius: "8px",
-              background: "#1e1e1e",
-              border: `1px solid ${theme.accent}30`,
-              fontFamily: "'Courier New', monospace",
-              fontSize: "0.75rem",
-              overflow: "auto",
-            }}
-          >
-            {msg.path && (
-              <div style={{ fontSize: "0.7rem", color: "#858585", marginBottom: "0.5rem" }}>
-                {msg.path}
+          <div style={{ display: "flex", flexDirection: "column", maxWidth: "85%" }}>
+            <div
+              style={{
+                padding: "0.6rem 0.8rem",
+                borderRadius: "8px",
+                background: "#1e1e1e",
+                border: `1px solid ${theme.accent}30`,
+                fontFamily: "'Courier New', monospace",
+                fontSize: "0.75rem",
+                overflow: "auto",
+              }}
+            >
+              {msg.path && (
+                <div style={{ fontSize: "0.7rem", color: "#858585", marginBottom: "0.5rem" }}>
+                  {msg.path}
+                </div>
+              )}
+              <div style={{ color: "#f48771", marginBottom: "0.5rem" }}>
+                <div style={{ fontSize: "0.7rem", marginBottom: "0.3rem" }}>Antes:</div>
+                <pre style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                  {msg.before}
+                </pre>
               </div>
-            )}
-            <div style={{ color: "#f48771", marginBottom: "0.5rem" }}>
-              <div style={{ fontSize: "0.7rem", marginBottom: "0.3rem" }}>Antes:</div>
-              <pre style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                {msg.before}
-              </pre>
+              <div style={{ color: "#6a9955" }}>
+                <div style={{ fontSize: "0.7rem", marginBottom: "0.3rem" }}>Después:</div>
+                <pre style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                  {msg.after}
+                </pre>
+              </div>
             </div>
-            <div style={{ color: "#6a9955" }}>
-              <div style={{ fontSize: "0.7rem", marginBottom: "0.3rem" }}>Después:</div>
-              <pre style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                {msg.after}
-              </pre>
-            </div>
+            {copyButton}
           </div>
         );
 

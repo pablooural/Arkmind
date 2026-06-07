@@ -321,3 +321,43 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 **HANDOFF:**
 - El sistema de persistencia core está completo.
 - Siguiente paso: Implementación de la UI para visualizar el journal y gestionar las sesiones persistidas.
+
+---
+
+## T-009 — Acción "Copiar al chat" sobre mensajes — 2026-06-07 — Mavis@cloud
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/components/ChatPanel.tsx` — agregado botón "Copiar al chat" + handler (143 ins, 66 del)
+
+**VERIFIED:**
+- Typecheck del archivo aislado con stubs: 0 errores reales (los errores restantes son de los stubs mismos, no del código).
+- Scope respetado: SOLO `ChatPanel.tsx`. NO se tocó `core/`, NO se tocó `hooks/`, NO se tocó `types.ts`.
+- Solo renderiza el botón para tipos `text`, `code`, `diff`. Los otros tipos (`proposal`, `snapshot`, `warning`, `action`) no son texto plano copiable, así que el botón no aparece.
+- Compatible con T-010 (la selección múltiple se puede construir encima sin re-trabajo).
+
+**NOT VERIFIED:**
+- No se ejecutó en browser (sin dev server en sandbox). El feedback visual "Copiado" y la animación dependen del runtime.
+- No se probó el caso edge de mensajes con `code.path` muy largo (probablemente没问题, pero no validado).
+- No se probó accesibilidad con teclado (el botón es clickeable pero no agregué shortcut).
+
+**DECISIONS:**
+- **Pega al input, NO envía**: deja al usuario editar antes de mandar. Coincide con la nota de la tarjeta ("asumimos: al chat activo, es lo más simple y útil").
+- **Code con path**: prepende `// {path}\n` para preservar contexto al pegar.
+- **Diff con path**: prepende `// {path}\n// Antes:\n// Después:\n` para que el contexto sea claro.
+- **Feedback 1.5s**: suficiente para que el usuario lo vea sin ser molesto.
+- **Botón siempre visible a 70% opacity, 100% en hover**: en mobile no hay hover, queda visible todo el tiempo (intencional).
+- **NO usé un sistema de selección múltiple**: eso es scope de T-010, no de T-009.
+
+**OPEN QUESTIONS:**
+- ¿El botón debería tener un atajo de teclado? (ej. `Cmd+C` después de seleccionar mensaje). No urge, abrir SUGGESTIONS si querés.
+- ¿Debería haber un toast/snackbar en vez de cambiar el texto del botón? Más "prolijo" pero requiere nuevo componente. Diferir.
+
+**HANDOFF:**
+- Siguiente tarjeta: **T-010 (Enviar a LLM)** depende de esto. Ya está la base.
+- Si querés mergear, la rama es `ia/mavis-cloud/t-009-copy-to-chat`. El PR se puede abrir desde GitHub mobile.
+- Si NO querés mergear (wip, querés revisar), avisame y dejo wip commit.
+
+**PROBLEMS / BLOCKERS:**
+- Ninguno.
