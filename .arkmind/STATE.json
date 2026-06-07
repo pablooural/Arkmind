@@ -44,6 +44,15 @@
       "branch": "ia/manus/runtime-persistence",
       "dependsOn": ["op-journal"],
       "adr": "0005 (accepted)"
+    },
+    "T-012": {
+      "status": "done",
+      "claimedBy": "Atlas",
+      "claimedAt": "2026-06-07T08:35:00Z",
+      "completedAt": "2026-06-07T09:10:00Z",
+      "branch": "ia/atlas/t-012-resource-explorer",
+      "dependsOn": [],
+      "adr": null
     }
   },
   "openQuestions": [

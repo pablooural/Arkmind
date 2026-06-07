@@ -361,3 +361,35 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 
 **PROBLEMS / BLOCKERS:**
 - Ninguno.
+
+---
+
+## T-012 — Panel de recursos multi-pestaña — 2026-06-07 — Atlas
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/components/ResourceExplorer.tsx` — Implementado sistema de pestañas (Archivos, Contexto, Snapshots, Contratos, ADRs) con carga bajo demanda.
+- `artifacts/ux-arquitecto/src/pages/DualPanelLayout.tsx` — Integración del panel extendido en el flujo de chat.
+- `.arkmind/STATE.json` — Actualizado estado de la tarea T-012.
+
+**VERIFIED:**
+- Pestaña **Archivos**: Mantiene la navegación por carpetas y breadcrumbs original.
+- Pestaña **Contexto**: Filtra automáticamente archivos `.md` en `.arkmind/`.
+- Pestaña **Contratos**: Escanea `.arkmind/modules/` para encontrar y listar todos los `CONTRACT.md`.
+- Pestaña **ADRs**: Lista todos los documentos de decisión en `.arkmind/decisions/`.
+- Pestaña **Snapshots**: Se conecta con `snapshotManager` para listar snapshots del contexto activo.
+
+**NOT VERIFIED:**
+- Renderizado visual exacto de los iconos de pestañas (depende de Lucide-React en runtime).
+- Performance con un número masivo de módulos (el escaneo de contratos es secuencial).
+
+**DECISIONS:**
+- **Carga Lazy por Pestaña**: Los datos solo se cargan cuando se cambia de pestaña para ahorrar recursos.
+- **Breadcrumb Condicional**: Solo se muestra en la pestaña de Archivos para evitar ruido visual en las otras vistas.
+- **Integración Nativa**: Se reutilizó el componente `ResourceRow` para mantener la consistencia visual en todas las pestañas.
+
+**HANDOFF:**
+- El panel de archivos ahora es un centro de recursos completo.
+- Siguiente paso lógico: **T-013 (Botón Explorar)** para permitir abrir carpetas externas directamente desde este nuevo panel.
+- La rama es `ia/atlas/t-012-resource-explorer`.

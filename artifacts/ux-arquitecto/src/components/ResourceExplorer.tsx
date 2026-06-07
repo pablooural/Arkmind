@@ -10,16 +10,17 @@
  * Long-press sobre cualquier elemento para cambiar el contexto raíz.
  */
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useWorkspace } from "@/hooks/useWorkspace";
 import { useFilesystemAccess } from "@/hooks/useFilesystemAccess";
 import { Theme } from "@/types/theme";
-import { ResourceNode, ResourceType } from "@/core/types";
+import { ResourceNode, ResourceType, Snapshot } from "@/core/types";
 import { filesystemManager } from "@/core/filesystem";
+import { snapshotManager } from "@/core/snapshots";
 import {
   ChevronRight, Folder, File, MessageSquare, BookOpen, BookMarked,
   Camera, CheckSquare, StickyNote, Brain, GitBranch, FileText,
-  FolderOpen, RotateCcw,
+  FolderOpen, RotateCcw, Search, History, FileCheck, ShieldAlert,
 } from "lucide-react";
 
 // ─── Helpers de tipo / icono / color ──────────────────────────────────────────
@@ -191,6 +192,8 @@ function ResourceRow({
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
+type ExplorerTab = "files" | "context" | "snapshots" | "contracts" | "adrs";
+
 export function ResourceExplorer({ theme, onSelectResource, selectedResourcePath }: ResourceExplorerProps) {
   const { activeContextPath, setActiveContext } = useWorkspace();
   const {
@@ -199,7 +202,9 @@ export function ResourceExplorer({ theme, onSelectResource, selectedResourcePath
     requestAccess, releaseAccess,
   } = useFilesystemAccess();
 
+  const [activeTab, setActiveTab]             = useState<ExplorerTab>("files");
   const [items, setItems]                     = useState<ResourceNode[]>([]);
+  const [snapshots, setSnapshots]             = useState<Snapshot[]>([]);
   const [selected, setSelected]               = useState<string | null>(selectedResourcePath ?? null);
   const [expanded, setExpanded]               = useState<Set<string>>(new Set());
   const [loadedChildren, setLoadedChildren]   = useState<Record<string, ResourceNode[]>>({});
@@ -210,24 +215,57 @@ export function ResourceExplorer({ theme, onSelectResource, selectedResourcePath
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fullPath = activeContextPath || "/";
 
-  // ── Cargar directorio actual ────────────────────────────────────────────
+  // ── Cargar datos según pestaña ──────────────────────────────────────────
 
-  const loadDir = useCallback(async (path: string) => {
+  const loadData = useCallback(async () => {
+    if (!isReady) return;
     setIsLoading(true);
     setError(null);
     try {
-      const nodes = await filesystemManager.listDirectory(path);
-      setItems(nodes);
+      switch (activeTab) {
+        case "files":
+          const nodes = await filesystemManager.listDirectory(currentPath);
+          setItems(nodes);
+          break;
+        case "context":
+          // Archivos relevantes en .arkmind/ (SUPOSICIONES, LEARNINGS, etc)
+          const ctxNodes = await filesystemManager.listDirectory("/.arkmind");
+          setItems(ctxNodes.filter(n => n.type === "file" && n.name.endsWith(".md")));
+          break;
+        case "contracts":
+          // Todos los CONTRACT.md en .arkmind/modules/
+          const modules = await filesystemManager.listDirectory("/.arkmind/modules");
+          const contracts: ResourceNode[] = [];
+          for (const mod of modules) {
+            if (mod.type === "folder") {
+              const modFiles = await filesystemManager.listDirectory(mod.path);
+              const contract = modFiles.find(f => f.name === "CONTRACT.md");
+              if (contract) contracts.push({ ...contract, name: `${mod.name} (Contract)` });
+            }
+          }
+          setItems(contracts);
+          break;
+        case "adrs":
+          // Todos los ADRs en .arkmind/decisions/
+          const adrNodes = await filesystemManager.listDirectory("/.arkmind/decisions");
+          setItems(adrNodes.filter(n => n.type === "file" && n.name.endsWith(".md")));
+          break;
+        case "snapshots":
+          await snapshotManager.hydrate();
+          const snaps = snapshotManager.listSnapshots(activeContextPath || "/");
+          setSnapshots(snaps);
+          break;
+      }
     } catch (err) {
       setError(String(err));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [isReady, activeTab, currentPath, activeContextPath]);
 
   useEffect(() => {
-    if (isReady) loadDir(currentPath);
-  }, [isReady, currentPath, loadDir]);
+    loadData();
+  }, [loadData]);
 
   // ── Expandir carpeta (carga lazy) ───────────────────────────────────────
 
@@ -360,65 +398,100 @@ export function ResourceExplorer({ theme, onSelectResource, selectedResourcePath
 
   // ── Render principal ────────────────────────────────────────────────────
 
+  const renderTabTrigger = (id: ExplorerTab, icon: React.ReactNode, label: string) => {
+    const isActive = activeTab === id;
+    return (
+      <div
+        onClick={() => setActiveTab(id)}
+        title={label}
+        style={{
+          flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+          padding: "0.5rem 0", cursor: "pointer",
+          borderBottom: `2px solid ${isActive ? theme.accent : "transparent"}`,
+          color: isActive ? theme.accent : theme.sub,
+          transition: "all 0.2s",
+        }}
+      >
+        {icon}
+      </div>
+    );
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", fontFamily: "'Courier New', monospace" }}>
 
-      {/* Header */}
+      {/* Tabs Selector */}
       <div style={{
-        padding: "0.5rem 0.9rem",
-        borderBottom: `1px solid ${theme.accent}18`,
-        background: `${theme.bg}cc`,
-        flexShrink: 0, fontSize: "0.65rem", color: theme.sub,
+        display: "flex", background: `${theme.bg}ee`,
+        borderBottom: `1px solid ${theme.accent}12`, flexShrink: 0,
       }}>
-        <div style={{ marginBottom: "0.2rem", opacity: 0.5 }}>CONTEXT RUNTIME</div>
-        <p style={{
-          margin: 0, color: theme.accent, fontSize: "0.72rem",
-          fontWeight: 500, wordBreak: "break-all", opacity: 0.85,
-        }}>
-          📁 {rootName}{currentPath !== "/" ? currentPath : ""}
-        </p>
+        {renderTabTrigger("files",     <Folder size={14} />, "Archivos")}
+        {renderTabTrigger("context",   <Brain size={14} />, "Contexto")}
+        {renderTabTrigger("snapshots", <History size={14} />, "Snapshots")}
+        {renderTabTrigger("contracts", <FileCheck size={14} />, "Contratos")}
+        {renderTabTrigger("adrs",      <ShieldAlert size={14} />, "ADRs")}
       </div>
 
-      {/* Breadcrumb */}
+      {/* Header Info */}
       <div style={{
-        padding: "0.5rem 0.9rem",
-        borderBottom: `1px solid ${theme.accent}18`,
-        display: "flex", alignItems: "center", gap: "0.3rem",
-        flexWrap: "wrap", background: `${theme.bg}cc`, flexShrink: 0,
+        padding: "0.4rem 0.9rem",
+        borderBottom: `1px solid ${theme.accent}08`,
+        background: `${theme.bg}88`,
+        flexShrink: 0, fontSize: "0.6rem", color: theme.sub,
+        display: "flex", justifyContent: "space-between", alignItems: "center",
       }}>
-        <span
-          onClick={() => { setCurrentPath("/"); setExpanded(new Set()); }}
-          onMouseDown={() => handleLongPressStart("/")}
-          onMouseUp={handleLongPressEnd}
-          onTouchStart={() => handleLongPressStart("/")}
-          onTouchEnd={handleLongPressEnd}
-          style={{
-            color: currentPath === "/" ? theme.text : theme.accent,
-            cursor: "pointer", fontSize: "0.7rem",
-            fontWeight: currentPath === "/" ? 600 : 400, userSelect: "none",
-          }}
-        >
-          ~
+        <span style={{ opacity: 0.5, letterSpacing: "0.05em" }}>
+          {activeTab.toUpperCase()} {activeTab === "files" && `— ${currentPath}`}
         </span>
-        {currentPath.replace(/^\//, "").split("/").filter(Boolean).map((part, i, arr) => (
-          <span key={i} style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
-            <span style={{ color: theme.sub, fontSize: "0.6rem" }}>/</span>
-            <span
-              onClick={() => {
-                const newPath = "/" + arr.slice(0, i + 1).join("/");
-                setCurrentPath(newPath);
-              }}
-              style={{
-                color: i === arr.length - 1 ? theme.text : theme.accent,
-                cursor: "pointer", fontSize: "0.7rem",
-                fontWeight: i === arr.length - 1 ? 600 : 400, userSelect: "none",
-              }}
-            >
-              {part}
-            </span>
+        {activeTab === "files" && (
+          <span style={{ color: theme.accent, fontSize: "0.65rem", fontWeight: 600 }}>
+            📁 {rootName}
           </span>
-        ))}
+        )}
       </div>
+
+      {/* Breadcrumb (solo en archivos) */}
+      {activeTab === "files" && (
+        <div style={{
+          padding: "0.4rem 0.9rem",
+          borderBottom: `1px solid ${theme.accent}18`,
+          display: "flex", alignItems: "center", gap: "0.3rem",
+          flexWrap: "wrap", background: `${theme.bg}cc`, flexShrink: 0,
+        }}>
+          <span
+            onClick={() => { setCurrentPath("/"); setExpanded(new Set()); }}
+            onMouseDown={() => handleLongPressStart("/")}
+            onMouseUp={handleLongPressEnd}
+            onTouchStart={() => handleLongPressStart("/")}
+            onTouchEnd={handleLongPressEnd}
+            style={{
+              color: currentPath === "/" ? theme.text : theme.accent,
+              cursor: "pointer", fontSize: "0.7rem",
+              fontWeight: currentPath === "/" ? 600 : 400, userSelect: "none",
+            }}
+          >
+            ~
+          </span>
+          {currentPath.replace(/^\//, "").split("/").filter(Boolean).map((part, i, arr) => (
+            <span key={i} style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+              <span style={{ color: theme.sub, fontSize: "0.6rem" }}>/</span>
+              <span
+                onClick={() => {
+                  const newPath = "/" + arr.slice(0, i + 1).join("/");
+                  setCurrentPath(newPath);
+                }}
+                style={{
+                  color: i === arr.length - 1 ? theme.text : theme.accent,
+                  cursor: "pointer", fontSize: "0.7rem",
+                  fontWeight: i === arr.length - 1 ? 600 : 400, userSelect: "none",
+                }}
+              >
+                {part}
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Contenido */}
       <div style={{ flex: 1, overflowY: "auto", padding: "0.3rem 0" }}>
@@ -436,12 +509,15 @@ export function ResourceExplorer({ theme, onSelectResource, selectedResourcePath
             {error}
           </div>
         )}
-        {!isLoading && !error && items.length === 0 && (
+        
+        {!isLoading && !error && activeTab !== "snapshots" && items.length === 0 && (
           <div style={{ padding: "2rem", textAlign: "center", color: theme.sub, fontSize: "0.75rem", opacity: 0.4 }}>
-            carpeta vacía
+            vacío
           </div>
         )}
-        {!isLoading && !error && items.map((node) => (
+
+        {/* Lista de Recursos (Files, Context, Contracts, ADRs) */}
+        {!isLoading && !error && activeTab !== "snapshots" && items.map((node) => (
           <ResourceRow
             key={node.path}
             node={node}
@@ -456,6 +532,50 @@ export function ResourceExplorer({ theme, onSelectResource, selectedResourcePath
             onLongPressEnd={handleLongPressEnd}
           />
         ))}
+
+        {/* Lista de Snapshots */}
+        {!isLoading && !error && activeTab === "snapshots" && (
+          snapshots.length === 0 ? (
+            <div style={{ padding: "2rem", textAlign: "center", color: theme.sub, fontSize: "0.75rem", opacity: 0.4 }}>
+              no hay snapshots en este contexto
+            </div>
+          ) : (
+            snapshots.map((snap) => (
+              <div
+                key={snap.id}
+                onClick={() => onSelectResource?.({
+                  id: snap.id,
+                  name: snap.label || `Snapshot ${snap.id.slice(0, 8)}`,
+                  path: `snapshot://${snap.id}`,
+                  type: "snapshot",
+                })}
+                style={{
+                  padding: "0.6rem 0.9rem", cursor: "pointer",
+                  borderBottom: `1px solid ${theme.accent}08`,
+                  display: "flex", flexDirection: "column", gap: "0.2rem",
+                  background: selectedResourcePath === `snapshot://${snap.id}` ? `${theme.accent}12` : "transparent",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <Camera size={14} style={{ color: theme.accent }} />
+                  <span style={{ fontSize: "0.75rem", color: theme.text, fontWeight: 500 }}>
+                    {snap.label || "Sin etiqueta"}
+                  </span>
+                </div>
+                <div style={{ fontSize: "0.6rem", color: theme.sub, display: "flex", gap: "0.5rem" }}>
+                  <span>{new Date(snap.timestamp).toLocaleString()}</span>
+                  <span>•</span>
+                  <span>{snap.metadata.resourceCount} archivos</span>
+                </div>
+                {snap.description && (
+                  <div style={{ fontSize: "0.65rem", color: theme.sub, opacity: 0.8, fontStyle: "italic" }}>
+                    {snap.description}
+                  </div>
+                )}
+              </div>
+            ))
+          )
+        )}
       </div>
 
       {/* Footer */}

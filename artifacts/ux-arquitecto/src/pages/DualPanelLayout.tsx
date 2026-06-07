@@ -75,6 +75,9 @@ export default function DualPanelLayout({ sessionId }: DualPanelLayoutProps) {
     />
   );
 
+  // En modo slide, si no hay editor abierto, el explorador puede estar "dentro" del chat
+  // o ser el panel lateral. Para T-012, nos aseguramos que esté disponible.
+
   const fixedContent = swapped ? explorerPanel : mainPanel;
   const sideContent  = swapped ? mainPanel     : explorerPanel;
 
