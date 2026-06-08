@@ -29,6 +29,10 @@ export type { AIProvider, AIRequest, AIProposal } from "./ai";
 export { NoopAIProvider, MistralAIProvider } from "./ai";
 export { authManager, type User, type AuthSession, type AuthConfig } from "./auth";
 // ADR 0004: AuthConfig ahora usa remoteUrl/remoteKey (aliases deprecated supabaseUrl/supabaseKey)
+// ADR 0007 (v0.1): ContextEnricher para que la IA reciba el state del runtime
+export { contextEnricher, ContextEnricher } from "./contextBridge";
+export type { ActiveContext, CognitiveContextSnapshot, WorkingMemorySnapshot } from "./contextBridge";
+export { COGNITIVE_INSIGHTS_LIMIT, WORKING_MEMORY_MESSAGES_LIMIT, WORKING_MEMORY_PROPOSALS_LIMIT } from "./contextBridge";
 export { memoryManager, MemoryManager } from "./memory";
 export type { HierarchicalMemoryResult } from "./memory";
 

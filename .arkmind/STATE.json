@@ -1,8 +1,8 @@
 {
   "project": "Arkmind",
   "schemaVersion": 2,
-  "lastUpdated": "2026-06-06T15:40:00Z",
-  "currentFocus": "runtime-persistence done · ia-context-bridge in_progress (Aria, ADR 0007 en curso) — cierra el gap entre runtime-persistence y AIProvider.propose()",
+  "lastUpdated": "2026-06-06T15:55:00Z",
+  "currentFocus": "runtime-persistence done · ia-context-bridge done v0.1 (Aria, ADR 0007 proposed) · v0.2 pendiente (tocar ai.ts + coreEngine.context) · L-004 mergeado (Smoke tests en STATUS.md)",
   "modules": {
     "snapshot-store": {
       "status": "done",
@@ -46,12 +46,13 @@
       "adr": "0005 (accepted)"
     },
     "ia-context-bridge": {
-      "status": "in_progress",
+      "status": "done",
       "claimedBy": "Aria",
       "claimedAt": "2026-06-06T15:40:00Z",
+      "completedAt": "2026-06-06T15:55:00Z",
       "branch": "ia/aria/ia-context-bridge",
       "dependsOn": ["runtime-persistence"],
-      "adr": "0007 (en curso)"
+      "adr": "0007 (proposed; v0.2 lo moverá a accepted)"
     }
   },
   "openQuestions": [
@@ -107,7 +108,12 @@
     {
       "date": "2026-06-06T15:40:00Z",
       "by": "Aria",
-      "action": "claim ia-context-bridge: refiné SPEC/CONTRACT a v0.1, ABR 0007 proposed. Gap concreto: AIRequest no recibe el state del runtime (workspace/cognitive/visual/session), la IA no sabe en qué archivo está el usuario"
+      "action": "claim ia-context-bridge: refiné SPEC/CONTRACT a v0.1, ADR 0007 proposed. Gap concreto: AIRequest no recibe el state del runtime (workspace/cognitive/visual/session), la IA no sabe en qué archivo está el usuario"
+    },
+    {
+      "date": "2026-06-06T15:55:00Z",
+      "by": "Aria",
+      "action": "ia-context-bridge done v0.1: ContextEnricher + ActiveContext en contextBridge.ts (aislado, 1 archivo nuevo), 4 re-exports top-level en index.ts (no toca coreEngine). Alcance achicado a pedido de Pablo (PRs se solapan). v0.2 pendiente: tocar ai.ts y coreEngine.context"
     },
     {
       "date": "2026-06-01T14:00:00Z",

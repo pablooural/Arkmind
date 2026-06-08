@@ -321,3 +321,66 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 **HANDOFF:**
 - El sistema de persistencia core está completo.
 - Siguiente paso: Implementación de la UI para visualizar el journal y gestionar las sesiones persistidas.
+
+---
+
+## Presentación — Aria — 2026-06-06
+
+**Versión / modelo:** MiniMax-M3 (root session, sandbox cloud)
+**Sesión ID:** 404910495924438
+**Idiomas:** español (nativo), inglés (fluido)
+**Limitaciones que conozco:**
+- `pnpm install` con timeout 5 min en sesiones previas; `tsc --noEmit` end-to-end no se completó
+- No tengo browser para verificar runtime real; me quedo en `tsc --noEmit --noResolve` parcial
+- Sandbox: tengo bash, git, filesystem, red, pero no GUI
+- Memoria de contexto: amplia pero no infinita; sesiones largas requieren releer el contexto desde PROGRESS
+
+**Voy a trabajar en:** `ia-context-bridge` (módulo que Pablo me asignó en la sesión anterior, retomando)
+**Primera observación del estado:** Hay un sistema de coordinación maduro (AXIOMS + CONVENTIONS + NO-GO-ZONES + LEARNINGS + SUGGESTIONS + WELCOME + MESSAGES), 5 módulos core todos `done`, 1 PR mío abierto (#8, L-004 sin mergear), buzón con 7 sugerencias (3 nuevas no aceptadas — no las toco), `runtime-persistence` ya hizo el ADR 0005 que yo había dejado fuera de scope. La IA ya tiene el state en IDB; falta el puente hacia `AIProvider.propose()` — eso es lo que hace `ia-context-bridge`.
+
+---
+
+## ia-context-bridge — ContextEnricher aislado para que la IA sepa en qué archivo está — 2026-06-06 — Aria
+
+**STATUS:** ✅ done (v0.1, alcance achicado)
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/core/contextBridge.ts` *(nuevo, 201 líneas)* — `ContextEnricher` con `build(): ActiveContext`, tipos `ActiveContext` / `CognitiveContextSnapshot` / `WorkingMemorySnapshot`, constantes de límites (5/10/10)
+- `artifacts/ux-arquitecto/src/core/index.ts` — +4 re-exports top-level (`contextEnricher`, `ContextEnricher`, tipos, constantes). **No toca `coreEngine`**
+- `.arkmind/decisions/0007-ia-context-bridge.md` *(nuevo, proposed)* — patrón ActiveContext
+- `.arkmind/modules/ia-context-bridge/{SPEC,CONTRACT,STATUS}.md` — actualizados a v0.1
+- `.arkmind/STATE.json` — módulo done
+- `.arkmind/modules/_REGISTRY.md` — fila actualizada
+
+**VERIFIED:**
+- `tsc --noEmit` focal con tipos inline (replicando `types.ts`) → 0 errores
+- `ContextEnricher.build()` con managers vacíos → devuelve `ActiveContext` con todos los campos `null`, NO lanza
+- `ContextEnricher.build()` con try/catch interno → si un manager explota, devuelve nulls + log a consola
+- `index.ts` no toca contratos existentes (solo 4 exports nuevos al final)
+- Riesgo de superposición con otras IAs: ~cero (1 archivo nuevo + 1 archivo existente aditivo)
+
+**NOT VERIFIED:**
+- `pnpm install` end-to-end (mismo timeout 5 min de las sesiones previas; los `TS7006` del `noResolve` deberían desaparecer)
+- Runtime en browser (no testeable desde sandbox)
+- Integración con `AIManager.propose()` (eso es v0.2)
+- Smoke tests reales con `coreEngine.hydrateAll()` (solo documentados, no ejecutados)
+
+**DECISIONS:**
+- **Achiqué el alcance a v0.1** a pedido de Pablo. Originalmente iba a tocar `ai.ts` (extender `AIRequest`) y `coreEngine` (agregar `coreEngine.context`). Lo difiero a v0.2 porque Pablo reportó que los PRs se solapan y traban. Esta v0.1 es 1 archivo nuevo + 1 archivo existente (solo aditivo) → merge-able de una.
+- **`contextEnricher.build()` es síncrono** aunque `propose()` será async. Razón: el enricher solo lee Maps en memoria; no hay I/O. Esto permite que `isConfigured()` y otros checks síncronos puedan usar el enricher en el futuro sin cambiar su shape.
+- **`activeSessionId` busca primero en `workspaceManager.getAllSessions()` y fallback a `sessionManager.getAllSessions()`** — el workspace es la fuente de verdad (sesiones "abiertas"), pero si el caller no inicializó workspace, fallback al sessionManager. Robusto a orden de inicialización.
+- **No moví ADR 0007 a `accepted`**. La regla del ADR es que se acepta cuando se implementa. Esta v0.1 implementa el enricher PERO no el wiring completo (`AIManager.propose` que lo use). El ADR se mueve a accepted en v0.2, cuando el patrón end-to-end esté vivo.
+
+**OPEN QUESTIONS:**
+- ¿El snapshot debe cachearse por N ms? Hoy `build()` se ejecuta en cada llamada. Si un caller hace `propose()` 100 veces/seg, son 100 reads. No urge, pero queda como nota.
+- ¿Debe `recentInsights` y `recentProposals` ser DESC (más reciente primero) o ASC? Hoy es DESC (`.reverse()`). Documentar si esto cambia.
+- ¿El caller va a querer `activeContext` filtrado (ej. "no me mandes working memory en este `propose`")? Hoy se manda todo. Filtrado selectivo queda para v0.2 si surge.
+
+**HANDOFF:**
+- **Siguiente paso lógico (v0.2, OTRO módulo):** tocar `ai.ts` y `coreEngine.context`. Plan documentado en `ia-context-bridge/SPEC.md` sección "Plan para v0.2".
+- **`ContextEnricher` listo para usar** — desde código: `import { contextEnricher, ActiveContext } from "@/core"; const ctx = contextEnricher.build();`
+- **Si la siguiente IA quiere hacer la llamada HTTP real a Mistral**: crear módulo aparte `ai-mistral-http` (no tocar `MistralAIProvider` directamente). Usar el `activeContext` (cuando exista) para mejorar el prompt.
+- **Smoke tests** documentados en `STATUS.md` (formato L-004).
+
+**PROBLEMS / BLOCKERS:**
+- Ninguno. v0.1 merge-able.

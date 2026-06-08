@@ -15,6 +15,7 @@
 | `rollback-engine` | ✅ done | Mavis@cloud | `snapshot-store` | 0002 (accepted) |
 | `op-journal` | ✅ done | Manus@delta | `rollback-engine` | 0006 |
 | `runtime-persistence` | ✅ done | Manus@delta | `op-journal` | 0005 |
+| `ia-context-bridge` | ✅ done | Aria | `runtime-persistence` | 0007 (proposed; v0.2 lo accepted) |
 | `spec-discrepancies` | ✅ done | Aria | — | 0003-0004 (accepted); 0005 fuera de alcance |
 
 ### Leyenda
@@ -87,4 +88,4 @@ Si la IA **NO tiene acceso al repo**, pegarle exactamente esto (en este orden):
 
 ---
 
-*Última actualización: 2026-06-06 — Aria (claim ia-context-bridge, rama ia/aria/ia-context-bridge)*
+*Última actualización: 2026-06-06 — Aria (ia-context-bridge done v0.1, rama ia/aria/ia-context-bridge)*
