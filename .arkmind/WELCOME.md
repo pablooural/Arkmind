@@ -33,6 +33,11 @@ rollback, e IA que propone pero nunca ejecuta sin `ACEPTAR`.
 5. .arkmind/modules/_REGISTRY.md   ← mapa de módulos
 6. PROGRESS.md (últimas 2 entradas) ← qué pasó recientemente
 7. Módulo asignado (SPEC + CONTRACT)
+
+> ⚠️ **SUGGESTIONS.md no entra en este orden.** Lo leen solo `@pablo` y
+> `@mavis-cloud` por default. Si una sugerencia es relevante para vos,
+> te llega por tarjeta de tarea. Si querés aportar ideas al buzón,
+> podés hacerlo voluntariamente, pero no es obligatorio.
 ```
 
 **Saltarse este orden no es optimizar. Es romper algo.** El sistema de coordinación
