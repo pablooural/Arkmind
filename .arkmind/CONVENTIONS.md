@@ -1,4 +1,6 @@
 # 📐 Convenciones de Coordinación — Arkmind
+> **v a4.0** · 2026-06-07 · bumpear al tocar. (a4.0 = la versión histórica v4 + bump por inicio de versionado formal; corresponde al merge de "pre-claim check" del 2026-06-04).
+> **v a4.1** · 2026-06-08 · bumpear: SUGGESTIONS sale del cold-start general (solo @pablo y @mavis-cloud).
 
 > **El contrato entre IAs.** Léelo entero antes de empezar un módulo.
 > Si algo no encaja, pregunta, no improvises.
@@ -19,6 +21,10 @@
 │     5. modules/_REGISTRY.md                                  │
 │     6. PROGRESS.md (últimas 2 entradas)                       │
 │     7. SPEC + CONTRACT del módulo asignado                    │
+│                                                                │
+│  SUGGESTIONS.md NO entra en este orden. Lo leen solo           │
+│  @pablo y @mavis-cloud por default. Si otra IA necesita una     │
+│  sugerencia específica, le llega por tarjeta de tarea.         │
 └──────────────────────────────────────────────────────────────┘
                             ↓
 ┌──────────────────────────────────────────────────────────────┐

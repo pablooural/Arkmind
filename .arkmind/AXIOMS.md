@@ -1,4 +1,5 @@
 # AXIOMS — Arkmind
+> **v a1.1** · 2026-06-07 · bumpear al tocar (a1.1 = la versión histórica 1.1 + bump por inicio de versionado formal).
 > **Leer este archivo primero. Siempre. Sin excepciones.**
 > Este documento no se debate. Si algo aquí contradice otro documento, este gana.
 

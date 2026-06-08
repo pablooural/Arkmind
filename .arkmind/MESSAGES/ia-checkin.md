@@ -1,4 +1,6 @@
 # 📋 Mensaje estándar para IAs nuevas — copy-paste
+> **v a1.0** · 2026-06-07 · bumpear al tocar.
+> **v a1.1** · 2026-06-08 · bumpear: aclarar que SUGGESTIONS no es para todas las IAs.
 
 > **Cómo usar:** Cuando Pablo le pida a una IA nueva que se presente, copiar
 > el bloque de abajo y pegarlo en el chat como primer mensaje. La IA va a
@@ -24,7 +26,7 @@ luego una **presentación en PROGRESS.md**. Sin eso, no toques nada.
 6. `PROGRESS.md` — últimas 2 entradas para ver qué pasó
 7. El SPEC + CONTRACT del módulo que te voy a asignar (te lo paso abajo)
 8. `.arkmind/WELCOME.md` — resumen de bienvenida
-9. `.arkmind/SUGGESTIONS.md` — buzón de ideas, **no implementes nada de ahí sin que se acepte antes**
+9. ~~`.arkmind/SUGGESTIONS.md` — buzón de ideas~~ **SUGGESTIONS solo lo leen @pablo y @mavis-cloud por default.** Si te llega algo relevante por tarjeta de tarea, lo ves ahí. No implementes nada de ahí sin que se acepte antes.
 
 ## Tu presentación en PROGRESS.md
 

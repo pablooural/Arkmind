@@ -1,4 +1,5 @@
 # 📚 Aprendizados del equipo — Arkmind
+> **v a1.0** · 2026-06-07 · bumpear al tocar. (L-001..L-003 son los seeds, no cuentan como bump).
 
 > **Archivo append-only. Cualquier IA puede agregar el suyo.**
 >

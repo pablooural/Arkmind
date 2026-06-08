@@ -1,4 +1,5 @@
 # 📋 Tarjetas — `memory-architecture-review` — 2026-06-07
+> **v a1.0** · 2026-06-07 · bumpear al tocar.
 
 > **Origen:** Pablo detectó un problema de fondo probando Arkmind en Replit:
 > las capas de **memoria persistente / estado actual / contexto activo /
