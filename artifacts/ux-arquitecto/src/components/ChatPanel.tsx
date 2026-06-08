@@ -13,29 +13,61 @@
  * - Pega el contenido del mensaje en el input del chat (no lo envía)
  * - Feedback visual de "Copiado" 1.5s
  * - Scope: solo ChatPanel.tsx, sin tocar core/ ni hooks/
+ *
+ * T-011 (Mavis@cloud, 2026-06-08): menú hamburguesa con historial de sesiones.
+ * - Icono 3 líneas en el header del chat
+ * - Dropdown con 3 secciones: Activas / Recientes / Archivadas
+ * - Click en una sesión → cambia el activeSessionId interno
+ * - Si el padre pasa onSessionChange, también lo notifica
+ * - State interno activeSessionId inicializado con la prop sessionId
+ * - Si la prop sessionId cambia externamente, sincroniza (useEffect)
+ * - Scope: solo ChatPanel.tsx + nuevos componentes UI si hace falta
+ * - NO modifica session.ts (los métodos ya existen: getAllSessions, setState)
+ * - NO modifica useSession (lee sessionManager directo desde core)
  */
 
 import { useState, useRef, useEffect } from "react";
 import { useSession } from "@/hooks/useSession";
 import { useAI } from "@/hooks/useAI";
-import { StructuredMessage } from "@/core";
+import { StructuredMessage, sessionManager, AIContextSession } from "@/core";
 import { Theme } from "@/types/theme";
-import { AlertCircle, CheckCircle, XCircle, Copy, Check } from "lucide-react";
+import { AlertCircle, CheckCircle, XCircle, Copy, Check, Menu, X } from "lucide-react";
 
 interface ChatPanelProps {
   theme: Theme;
   sessionId: string | null;
+  /** T-011: callback opcional cuando el usuario cambia de sesión desde el menú */
+  onSessionChange?: (newSessionId: string) => void;
 }
 
-export function ChatPanel({ theme, sessionId }: ChatPanelProps) {
-  const { session, messages, isLoading: sessionLoading, error: sessionError, sendMessage: sendSessionMessage } = useSession(sessionId);
+export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps) {
+  // T-011: state interno para la sesión activa. Inicializado con la prop.
+  // Si la prop cambia, sincronizamos con useEffect más abajo.
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(sessionId);
+  const { session, messages, isLoading: sessionLoading, error: sessionError, sendMessage: sendSessionMessage } = useSession(activeSessionId);
   const { sendMessage: sendAIMessage, isLoading: aiLoading, error: aiError, isConfigured } = useAI();
   const [input, setInput] = useState("");
   // T-009: id del mensaje cuyo botón "Copiado" se está mostrando. null = ninguno.
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  // T-011: estado del menú de historial (abierto/cerrado)
+  const [historyOpen, setHistoryOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const isLoading = sessionLoading || aiLoading;
   const error = sessionError || aiError;
+
+  // T-011: sincronizar activeSessionId con cambios externos de la prop
+  useEffect(() => {
+    setActiveSessionId(sessionId);
+  }, [sessionId]);
+
+  // T-011: handler para elegir una sesión del menú
+  const handleSelectSession = (newId: string) => {
+    setActiveSessionId(newId);
+    setHistoryOpen(false);
+    if (onSessionChange) {
+      onSessionChange(newId);
+    }
+  };
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -43,11 +75,11 @@ export function ChatPanel({ theme, sessionId }: ChatPanelProps) {
 
   const handleSend = async () => {
     if (!input.trim()) return;
-    if (!sessionId) return;
+    if (!activeSessionId) return;
 
     // Si AI está configurado, enviar a Mistral
     if (isConfigured) {
-      await sendAIMessage(sessionId, input);
+      await sendAIMessage(activeSessionId, input);
     } else {
       // Si no, solo agregar a la sesión
       await sendSessionMessage(input);
@@ -379,6 +411,39 @@ export function ChatPanel({ theme, sessionId }: ChatPanelProps) {
     );
   }
 
+  // T-011: helper para agrupar y ordenar sesiones
+  const groupedSessions = (() => {
+    const all: AIContextSession[] = sessionManager.getAllSessions();
+    const active: AIContextSession[] = [];
+    const recent: AIContextSession[] = [];
+    const archived: AIContextSession[] = [];
+
+    for (const s of all) {
+      if (s.state === "archived") {
+        archived.push(s);
+      } else if (s.state === "active") {
+        active.push(s);
+      } else {
+        // idle, forked, summarized, restoring → recientes
+        recent.push(s);
+      }
+    }
+
+    // Ordenar por lastActive DESC
+    const byLastActive = (a: AIContextSession, b: AIContextSession) => b.lastActive - a.lastActive;
+    active.sort(byLastActive);
+    recent.sort(byLastActive);
+    archived.sort(byLastActive);
+
+    return { active, recent, archived };
+  })();
+
+  // T-011: helper para truncar un path a algo legible
+  const truncatePath = (path: string, max: number = 40): string => {
+    if (path.length <= max) return path;
+    return "…" + path.slice(-(max - 1));
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", fontFamily: "Georgia, serif" }}>
       {/* Header */}
@@ -387,21 +452,66 @@ export function ChatPanel({ theme, sessionId }: ChatPanelProps) {
           padding: "0.8rem",
           borderBottom: `1px solid ${theme.accent}20`,
           background: `${theme.bg}cc`,
+          display: "flex",
+          alignItems: "flex-start",
+          gap: "0.5rem",
         }}
       >
-        <h2 style={{ fontSize: "0.9rem", fontWeight: "600", color: theme.text, margin: 0 }}>
-          Chat - {session.contextPath}
-        </h2>
-        <p
+        {/* T-011: botón hamburguesa */}
+        <button
+          onClick={() => setHistoryOpen((v) => !v)}
+          title={historyOpen ? "Cerrar historial" : "Abrir historial"}
+          aria-label={historyOpen ? "Cerrar historial de chats" : "Abrir historial de chats"}
           style={{
-            fontSize: "0.7rem",
+            background: "transparent",
+            border: `1px solid ${theme.accent}30`,
+            borderRadius: "6px",
+            padding: "0.35rem 0.45rem",
+            cursor: "pointer",
             color: theme.sub,
-            margin: "0.3rem 0 0 0",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            transition: "all 0.15s",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = theme.text;
+            e.currentTarget.style.borderColor = theme.accent + "60";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = theme.sub;
+            e.currentTarget.style.borderColor = theme.accent + "30";
           }}
         >
-          Goal: {session.cognitiveContext.goal}
-        </p>
+          {historyOpen ? <X size={16} /> : <Menu size={16} />}
+        </button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h2 style={{ fontSize: "0.9rem", fontWeight: "600", color: theme.text, margin: 0 }}>
+            Chat - {session.contextPath}
+          </h2>
+          <p
+            style={{
+              fontSize: "0.7rem",
+              color: theme.sub,
+              margin: "0.3rem 0 0 0",
+            }}
+          >
+            Goal: {session.cognitiveContext.goal}
+          </p>
+        </div>
       </div>
+
+      {/* T-011: Dropdown de historial (condicional) */}
+      {historyOpen && (
+        <HistoryDropdown
+          theme={theme}
+          currentSessionId={activeSessionId}
+          grouped={groupedSessions}
+          truncatePath={truncatePath}
+          onSelect={handleSelectSession}
+        />
+      )}
 
       {/* Mensajes */}
       <div
@@ -547,6 +657,137 @@ export function ChatPanel({ theme, sessionId }: ChatPanelProps) {
           ↑
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * T-011: HistoryDropdown
+ * Subcomponente que renderiza el menú de historial de sesiones.
+ * Se renderiza dentro del ChatPanel cuando `historyOpen === true`.
+ *
+ * Props:
+ *   - theme: el tema actual (colores)
+ *   - currentSessionId: id de la sesión actualmente activa (para highlight)
+ *   - grouped: sesiones ya agrupadas en {active, recent, archived}
+ *   - truncatePath: helper para acortar paths largos
+ *   - onSelect: callback al elegir una sesión
+ *
+ * Scope: privado a este archivo, no se exporta. Si en el futuro se necesita
+ * en otros componentes, mover a su propio archivo en components/ui/.
+ */
+interface HistoryDropdownProps {
+  theme: Theme;
+  currentSessionId: string | null;
+  grouped: {
+    active: AIContextSession[];
+    recent: AIContextSession[];
+    archived: AIContextSession[];
+  };
+  truncatePath: (path: string, max?: number) => string;
+  onSelect: (sessionId: string) => void;
+}
+
+function HistoryDropdown({
+  theme,
+  currentSessionId,
+  grouped,
+  truncatePath,
+  onSelect,
+}: HistoryDropdownProps) {
+  const renderSessionItem = (s: AIContextSession) => {
+    const isCurrent = s.id === currentSessionId;
+    return (
+      <button
+        key={s.id}
+        onClick={() => onSelect(s.id)}
+        title={s.contextPath}
+        style={{
+          display: "block",
+          width: "100%",
+          textAlign: "left",
+          padding: "0.5rem 0.7rem",
+          background: isCurrent ? `${theme.accent}22` : "transparent",
+          border: "none",
+          borderLeft: isCurrent ? `3px solid ${theme.accent}` : "3px solid transparent",
+          color: theme.text,
+          fontSize: "0.78rem",
+          cursor: "pointer",
+          transition: "background 0.1s",
+        }}
+        onMouseEnter={(e) => {
+          if (!isCurrent) e.currentTarget.style.background = `${theme.accent}10`;
+        }}
+        onMouseLeave={(e) => {
+          if (!isCurrent) e.currentTarget.style.background = "transparent";
+        }}
+      >
+        <div
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+            fontWeight: isCurrent ? "600" : "400",
+          }}
+        >
+          {truncatePath(s.contextPath)}
+        </div>
+        <div
+          style={{
+            fontSize: "0.65rem",
+            color: theme.sub,
+            marginTop: "0.15rem",
+            display: "flex",
+            gap: "0.5rem",
+          }}
+        >
+          <span>{s.state}</span>
+          <span>·</span>
+          <span>{s.messages.length} mensajes</span>
+        </div>
+      </button>
+    );
+  };
+
+  const renderSection = (title: string, sessions: AIContextSession[], emptyMsg: string) => {
+    if (sessions.length === 0) {
+      return (
+        <div style={{ padding: "0.4rem 0.7rem", fontSize: "0.7rem", color: theme.sub, fontStyle: "italic" }}>
+          {emptyMsg}
+        </div>
+      );
+    }
+    return (
+      <>
+        <div
+          style={{
+            padding: "0.4rem 0.7rem 0.2rem",
+            fontSize: "0.65rem",
+            fontWeight: "600",
+            color: theme.sub,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+          }}
+        >
+          {title} ({sessions.length})
+        </div>
+        {sessions.map(renderSessionItem)}
+      </>
+    );
+  };
+
+  return (
+    <div
+      style={{
+        borderBottom: `1px solid ${theme.accent}20`,
+        background: `${theme.surface}ee`,
+        maxHeight: "320px",
+        overflowY: "auto",
+      }}
+    >
+      {renderSection("Activas", grouped.active, "No hay sesiones activas")}
+      {renderSection("Recientes", grouped.recent, "No hay sesiones recientes")}
+      {renderSection("Archivadas", grouped.archived, "No hay sesiones archivadas")}
     </div>
   );
 }
