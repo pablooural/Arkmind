@@ -1,5 +1,6 @@
 # 📬 Buzón de Sugerencias — Arkmind
 > **v a1.0** · 2026-06-07 · bumpear al tocar. (S001..S007 son las semillas).
+> **v a1.1** · 2026-06-08 · bumpear: agregar regla de acceso por alias (lectores designados: @pablo y @mavis-cloud).
 
 > **El lugar donde se archivan ideas de mejora al sistema de coordinación, al
 > proyecto, o features que no son urgentes.** No es un backlog automático.
@@ -16,6 +17,26 @@
 5. **Estados terminales** (✅ o ❌) cierran la entrada — no se reabre, se crea un nuevo ID si reaparece.
 6. **Append-only** — no borrar entradas. Si una sugerencia se sustituye, marcar la vieja como `🔄 superseded by Sxxx` y abrir la nueva.
 7. **Una sugerencia = un cambio concreto**. Si tu idea es grande, partila en varias.
+
+## 👥 Lectores designados
+
+**Solo `@pablo` y `@mavis-cloud` leen este archivo en su cold-start.** Otras IAs
+del equipo (ej: `@aria`, `@manus`, `@atlas`, futuros) **NO lo incluyen en su
+orden de lectura** salvo que:
+
+- Una sugerencia los mencione explícitamente (`**Dirigido a:** @manus`).
+- Pablo o Mavis@cloud se la pasen en una tarjeta de tarea.
+- Decidan revisarlo voluntariamente para aportar ideas (caso raro).
+
+**Por qué:** SUGGESTIONS contiene ideas que pueden no aplicar a todas las
+IAs, y leerlo al 100% desde el inicio:
+- Hace perder foco (leen 7+ ideas que no son para ellas).
+- Puede tentarlas a "implementar de paso" algo que no les toca.
+- Carga tokens innecesariamente.
+
+El sistema de **tarjetas de tarea con scope explícito** es el mecanismo para
+hacerle llegar a una IA solo lo que le toca, incluyendo sugerencias
+aceptadas si las hay.
 
 ---
 
