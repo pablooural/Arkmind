@@ -361,3 +361,44 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 
 **PROBLEMS / BLOCKERS:**
 - Ninguno.
+
+---
+
+## T-011 — Historial de chats accesible desde el chat (menú de 3 líneas) — 2026-06-08 — Mavis@cloud
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/components/ChatPanel.tsx` — botón hamburguesa + state interno activeSessionId + componente HistoryDropdown (255 ins, 14 del)
+
+**VERIFIED:**
+- Typecheck del archivo aislado con stubs: 0 errores reales (los restantes son de los stubs mismos, no del código).
+- Scope respetado: SOLO `ChatPanel.tsx`. NO se tocó `core/`, NO se tocó `hooks/`, NO se tocó `session.ts`, NO se tocó `useSession`.
+- Métodos que necesitaba YA existían: `sessionManager.getAllSessions()`, `sessionManager.setState()`. NO tuve que crear nada nuevo.
+- `SessionState` YA incluye `"archived"`. NO incluye `"pinned"` — el spec de la tarjeta lo pedía pero lo descarté porque añadir un nuevo SessionState requiere ADR (NO-GO-ZONE en types.ts).
+
+**NOT VERIFIED:**
+- No se ejecutó en browser (sin dev server en sandbox).
+- No se probó el scroll del dropdown con muchas sesiones.
+- No se probó accesibilidad por teclado (Tab, Enter, Escape para cerrar).
+
+**DECISIONS:**
+- **3 secciones en vez de 4**: Activas (state="active") / Recientes (idle, forked, summarized, restoring) / Archivadas (state="archived"). Esto cubre todos los SessionState sin agregar nuevos.
+- **NO agregué "fijadas/pinned"** porque requeriría un nuevo SessionState y eso es cambio en types.ts (NO-GO). Si Pablo quiere pinning, abrir ADR.
+- **activeSessionId como state interno, NO prop**: el padre sigue pasando sessionId por prop, el panel sincroniza con useEffect. Si el padre no pasa callback onSessionChange, el panel maneja la navegación solo.
+- **onSessionChange es opcional**: el padre puede o no reaccionar al cambio. Si no, el panel lo maneja internamente.
+- **No toqué session.ts**: los métodos ya estaban, no inventé lo que no hacía falta.
+- **No toqué useSession hook**: leo `sessionManager` directo desde core, sin acoplarme a la API del hook.
+
+**OPEN QUESTIONS:**
+- ¿El menú debería tener búsqueda/filtro por texto cuando hay >20 sesiones? No urge, diferir.
+- ¿El click en una sesión archivada debería automáticamente desarchivarla? Diferir, eso es scope de T-011b o un ADR.
+- ¿Falta un botón "Nueva sesión" en el menú? Sí, pero requiere método createSession en algún lado. Diferir a una tarjeta siguiente.
+
+**HANDOFF:**
+- Siguiente tarjeta del plan: **T-010 (Enviar a LLM)** depende de T-009 (ya mergeada). O **T-012 (Panel de archivos)** si querés algo del Bloque 2.
+- Si querés mergear, la rama es `ia/mavis-cloud/t-011-history-menu`. El PR se puede abrir desde GitHub mobile.
+- Si NO querés mergear (querés revisar primero), avisame.
+
+**PROBLEMS / BLOCKERS:**
+- Ninguno.
