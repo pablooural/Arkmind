@@ -1,4 +1,5 @@
 # Bienvenida a Arkmind — Léeme antes de empezar
+> **v a1.0** · 2026-06-07 · bumpear al tocar.
 
 > Este documento se lo entregas a una IA nueva en su primer mensaje.
 > Está pensado para que la IA lea **esto primero**, antes de tocar nada.

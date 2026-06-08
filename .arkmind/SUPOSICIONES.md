@@ -1,4 +1,5 @@
 # 🧱 Suposiciones del proyecto
+> **v a1.0** · 2026-06-07 · bumpear al tocar.
 
 > Las **creencias estables** sobre las que se construye Arkmind.
 > NO son decisiones técnicas detalladas (esas viven en `decisions/`) ni

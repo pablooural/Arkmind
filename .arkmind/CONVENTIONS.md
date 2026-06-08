@@ -1,4 +1,5 @@
 # 📐 Convenciones de Coordinación — Arkmind
+> **v a4.0** · 2026-06-07 · bumpear al tocar. (a4.0 = la versión histórica v4 + bump por inicio de versionado formal; corresponde al merge de "pre-claim check" del 2026-06-04).
 
 > **El contrato entre IAs.** Léelo entero antes de empezar un módulo.
 > Si algo no encaja, pregunta, no improvises.

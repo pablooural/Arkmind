@@ -1,4 +1,5 @@
 # 🚫 NO-GO-ZONES
+> **v a1.0** · 2026-06-07 · bumpear al tocar.
 
 > **Consultar SIEMPRE antes de modificar.** Estas son las líneas rojas del proyecto.
 > Si crees que hay que tocar algo de aquí, abre primero un ADR en `.arkmind/decisions/`

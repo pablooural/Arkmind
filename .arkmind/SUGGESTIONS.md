@@ -1,4 +1,5 @@
 # 📬 Buzón de Sugerencias — Arkmind
+> **v a1.0** · 2026-06-07 · bumpear al tocar. (S001..S007 son las semillas).
 
 > **El lugar donde se archivan ideas de mejora al sistema de coordinación, al
 > proyecto, o features que no son urgentes.** No es un backlog automático.

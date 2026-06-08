@@ -1,4 +1,5 @@
 # 📋 Mensaje estándar para IAs nuevas — copy-paste
+> **v a1.0** · 2026-06-07 · bumpear al tocar.
 
 > **Cómo usar:** Cuando Pablo le pida a una IA nueva que se presente, copiar
 > el bloque de abajo y pegarlo en el chat como primer mensaje. La IA va a

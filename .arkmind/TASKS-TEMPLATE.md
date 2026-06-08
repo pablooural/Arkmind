@@ -1,4 +1,5 @@
 # 📋 Tarjetas de tarea — `plan-de-trabajo-hoy` — 2026-06-06
+> **v a1.0** · 2026-06-07 · bumpear al tocar.
 
 > **Origen:** plan de Pablo, sesión 2026-06-06. 6 funcionalidades divididas
 > en 6 tarjetas. Cada una tiene scope explícito para que se pueda ejecutar
