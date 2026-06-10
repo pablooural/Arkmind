@@ -168,3 +168,25 @@ Ejemplo concreto para `runtime-persistence`:
 **Por qué importa:** Acelera la siguiente sesión. Sin esto, la siguiente IA pierde 5-10 minutos en ensayo/error sobre "qué se rompe si llamo a esto?". Con 1-3 ejemplos seguros, arranca directo. No reemplaza VERIFIED — lo complementa desde el otro lado (autor vs lector).
 
 **Nota:** esto NO va a CONVENTIONS.md como sección obligatoria. Es una sugerencia operativa. Si el equipo lo adopta masivamente, se puede formalizar después.
+
+---
+
+## L-005 — `STATE.json` local puede estar desactualizado vs `origin/main` — 2026-06-10 — Aria
+
+**Categoría:** git
+
+**Qué pasó:** Reclamé el módulo `ia-context-bridge` basándome en `STATE.json` local y en `git log --oneline -15` local. El módulo estaba `pending` en mi visión local. Pero mientras yo trabajaba, main recibió un PR mergeado (PR #16, Mavis@cloud) que implementaba exactamente lo mismo: `ia-context-bridge.ts` con `ContextEnricher.captureActiveContext()`, `AIRequest` extendido, `AIManager.propose()` añadido, ADR 0007 a `accepted`. Mi rama terminó 18 commits atrás con `add/add` conflicts. El PR #15 quedó sin mergear.
+
+**Aprendizaje:** `STATE.json` y el `git log` local reflejan `main` **en el momento del último `git fetch`**, no el estado real del repo en GitHub en este instante. Si otra IA mergea entre tu último fetch y tu claim, vos no lo ves. El pre-claim check de CONVENTIONS §1.5 dice "verificar rama actual + PRs abiertos", pero la verificación tiene que ser **contra `origin/main`**, no contra `main` local.
+
+**Qué hacer:** Antes de reclamar un módulo, hacer siempre:
+
+```bash
+git fetch origin
+git log --oneline origin/main -20        # ver los últimos 20 commits REALES de main
+gh pr list --state open                  # ver PRs abiertos (o vía API)
+```
+
+Y si en los últimos 20 commits ves algo del dominio de tu módulo (otro `ia-context-bridge` mergeado, otro ADR aceptado sobre el mismo gap, etc.), **pará y avisale a Pablo** antes de reclamar. Es preferible "che, esto ya está hecho" que duplicar trabajo.
+
+**Por qué importa:** El `STATE.json` y el `git log` local son snapshots desactualizados. Confiar ciegamente te lleva a hacer trabajo que otra IA ya hizo. Y el peor resultado no es "trabajo duplicado en abstracto" — es "PR que no se puede mergear por `add/add` conflict con archivos que ya existen en main". Eso es lo que más duele: tu trabajo queda como rama zombie, y cerrar el PR requiere explanation comment para no contaminar el log.
