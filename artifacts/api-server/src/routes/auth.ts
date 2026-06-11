@@ -1,18 +1,9 @@
 import { Router } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabase } from "./supabase";
 
 const router = Router();
-
-let _supabase: ReturnType<typeof createClient> | null = null;
-function getSupabase() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_API_KEY;
-  if (!url || !key || !url.startsWith("http")) return null;
-  if (!_supabase) _supabase = createClient(url, key);
-  return _supabase;
-}
 
 interface LocalUser {
   id: string;

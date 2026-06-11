@@ -1,11 +1,3 @@
-/**
- * AI API Service
- * Cliente para comunicarse con el backend seguro.
- * Las claves API están en el servidor, no en el frontend.
- *
- * CAMBIO: ResourceContext ahora incluye fileContent opcional.
- */
-
 export interface AIConfigResponse {
   mistral: {
     model: string;
@@ -31,7 +23,6 @@ export interface ResourceContext {
   name: string;
   type: string;
   path: string;
-  /** Contenido real del archivo, si está disponible y es texto */
   fileContent?: string;
 }
 
@@ -51,7 +42,7 @@ export async function sendMessageToAI(
   model?: string,
   history?: ConversationMessage[],
   resourceContext?: ResourceContext | null,
-  memoryBlock?: string | null
+  memoryBlock?: string | null,
 ): Promise<string> {
   try {
     const response = await fetch("/api/ai/message", {
