@@ -254,6 +254,11 @@ export class CognitiveContextManager {
     if (deleted) {
       snapshotStore.getRuntimeStore("cognitive_contexts", "readwrite").then(({ tx, store }) => {
         store.delete(contextPath);
+        tx.onerror = () => {
+          console.error(`Failed to delete cognitive context ${contextPath} from IndexedDB:`, tx.error);
+        };
+      }).catch((error) => {
+        console.error(`Failed to delete cognitive context ${contextPath} from IndexedDB:`, error);
       });
     }
     return deleted;

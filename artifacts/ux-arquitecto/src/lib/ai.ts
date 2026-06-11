@@ -107,14 +107,25 @@ router.post("/message", async (req, res) => {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      req.log.error({ error }, "Mistral API error");
+      let errorBody: unknown;
+      try {
+        errorBody = await response.json();
+      } catch {
+        errorBody = await response.text().catch(() => "(unreadable body)");
+      }
+      req.log.error({ error: errorBody, status: response.status }, "Mistral API error");
       res.status(response.status).json({ error: "Error en Mistral API" });
       return;
     }
 
     const data = await response.json() as any;
     const content = data.choices?.[0]?.message?.content;
+
+    if (content === undefined || content === null) {
+      req.log.warn({ data }, "Mistral returned empty content");
+      res.status(502).json({ error: "La IA no generó una respuesta" });
+      return;
+    }
 
     res.json({ content });
   } catch (error) {
