@@ -24,6 +24,16 @@
  * - Scope: solo ChatPanel.tsx + nuevos componentes UI si hace falta
  * - NO modifica session.ts (los métodos ya existen: getAllSessions, setState)
  * - NO modifica useSession (lee sessionManager directo desde core)
+ *
+ * T-010 (Mavis@cloud, 2026-06-10): acción "Enviar a LLM" sobre mensajes.
+ * - Botón aparece al lado de "Copiar al chat" en el mismo hover group
+ * - Crea una nueva sesión (mismo panelId/contextPath) y le inserta el contenido
+ *   como primer mensaje de la nueva conversación
+ * - Navega a la nueva sesión: cambia activeSessionId y notifica onSessionChange
+ * - Helper `createSessionWithInitialMessage` agregado en session.ts
+ *   (1 método nuevo, sin tocar los existentes)
+ * - Scope: ChatPanel.tsx + 1 método nuevo en session.ts
+ * - NO modifica types.ts ni ia-context-bridge.ts ni useSession
  */
 
 import { useState, useRef, useEffect } from "react";
@@ -31,7 +41,8 @@ import { useSession } from "@/hooks/useSession";
 import { useAI } from "@/hooks/useAI";
 import { StructuredMessage, sessionManager, AIContextSession } from "@/core";
 import { Theme } from "@/types/theme";
-import { AlertCircle, CheckCircle, XCircle, Copy, Check, Menu, X } from "lucide-react";
+import { AlertCircle, CheckCircle, XCircle, Copy, Check, Menu, X, Send } from "lucide-react";
+import { visualManager } from "@/core/visual";
 
 interface ChatPanelProps {
   theme: Theme;
@@ -91,6 +102,69 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
+    }
+  };
+
+  // T-009: extraer el contenido textual de un mensaje, mismo formato que T-009.
+  // Si el tipo no es copiable, devuelve null.
+  const extractMessageContent = (msg: StructuredMessage): string | null => {
+    if (msg.type === "text") return msg.content;
+    if (msg.type === "code") return msg.path ? `// ${msg.path}\n${msg.content}` : msg.content;
+    if (msg.type === "diff") return `// ${msg.path}\n// Antes:\n${msg.before}\n// Después:\n${msg.after}`;
+    return null;
+  };
+
+  // T-010: handler de "Enviar a LLM". Crea una nueva sesión con el contenido
+  // del mensaje como primer mensaje, y navega hacia ella.
+  const handleSendToLLM = (msg: StructuredMessage) => {
+    const content = extractMessageContent(msg);
+    if (!content) return;
+
+    // Necesitamos una sesión fuente de la cual derivar panelId / contextPath /
+    // cognitiveContext. Si no hay activa, buscamos la primera activa.
+    let source = activeSessionId ? sessionManager.getSession(activeSessionId) : undefined;
+    if (!source) {
+      source = sessionManager.getAllSessions().find((s) => s.state === "active");
+    }
+    if (!source) return; // sin sesión fuente, no se puede crear
+
+    // Reconstruir un VisualContext mínimo a partir de la sesión fuente.
+    // Solo necesitamos el panelId y el persistent state (visualManager ya lo tiene).
+    const persistent = visualManager.getPersistentState(source.panelId);
+    const visualContext = {
+      panelId: source.panelId,
+      contextPath: source.contextPath,
+      persistent: persistent ?? {
+        openResources: [],
+        viewMode: "code" as const,
+      },
+      transient: {
+        lastInteraction: Date.now(),
+      },
+    };
+
+    // Crear el mensaje inicial. Tipo "text" porque es lo más general; el
+    // contenido es lo que el usuario quería delegar.
+    const initialMessage: StructuredMessage = {
+      id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      role: "user",
+      type: "text",
+      content,
+      timestamp: Date.now(),
+    };
+
+    // Crear la nueva sesión.
+    const newSession = sessionManager.createSessionWithInitialMessage(
+      source.id,
+      initialMessage,
+      visualContext
+    );
+    if (!newSession) return;
+
+    // Navegar a la nueva sesión.
+    setActiveSessionId(newSession.id);
+    if (onSessionChange) {
+      onSessionChange(newSession.id);
     }
   };
 
@@ -156,9 +230,47 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
     );
   };
 
+  // T-010: helper que renderiza el botón "Enviar a LLM" (al lado del de copiar).
+  // Misma condición que T-009: solo si el mensaje tiene contenido textual.
+  const renderSendToLLMButton = (msg: StructuredMessage) => {
+    if (msg.type !== "text" && msg.type !== "code" && msg.type !== "diff") {
+      return null;
+    }
+    return (
+      <button
+        onClick={() => handleSendToLLM(msg)}
+        title="Crear nueva conversación con este contenido y abrirla"
+        aria-label="Enviar a LLM"
+        style={{
+          marginTop: "0.3rem",
+          marginLeft: "0.4rem",
+          padding: "0.2rem 0.5rem",
+          borderRadius: "4px",
+          background: "transparent",
+          border: `1px solid ${theme.accent}30`,
+          color: theme.sub,
+          fontSize: "0.7rem",
+          cursor: "pointer",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: "0.25rem",
+          opacity: 0.7,
+          transition: "opacity 0.15s, background 0.15s",
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+        onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
+      >
+        <Send size={11} />
+        Enviar a LLM
+      </button>
+    );
+  };
+
   const renderMessage = (msg: StructuredMessage) => {
     const isUser = msg.role === "user";
     const copyButton = renderCopyButton(msg);
+    // T-010: botón "Enviar a LLM" al lado del de copiar. Misma condición.
+    const sendToLLMButton = renderSendToLLMButton(msg);
 
     switch (msg.type) {
       case "text":
@@ -180,6 +292,7 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
               {msg.content}
             </div>
             {copyButton}
+            {sendToLLMButton}
           </div>
         );
 
@@ -208,6 +321,7 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
               </pre>
             </div>
             {copyButton}
+            {sendToLLMButton}
           </div>
         );
 
@@ -244,6 +358,7 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
               </div>
             </div>
             {copyButton}
+            {sendToLLMButton}
           </div>
         );
 

@@ -183,6 +183,36 @@ export class SessionManager {
   }
 
   /**
+   * T-010 (Mavis@cloud, 2026-06-10): crear una nueva sesión a partir de una
+   * existente, copiando panelId / contextPath / cognitiveContext, y agregando
+   * un mensaje inicial. Usado por "Enviar a LLM" para delegar contenido
+   * desde otra conversación.
+   *
+   * El `visualContext` se pasa explícito (no se deriva del source) porque
+   * es la representación completa, no solo el ID. El caller lo construye.
+   *
+   * @returns la nueva sesión, o null si sourceSessionId no existe.
+   */
+  createSessionWithInitialMessage(
+    sourceSessionId: string,
+    initialMessage: StructuredMessage,
+    visualContext: VisualContext
+  ): AIContextSession | null {
+    const source = this.getSession(sourceSessionId);
+    if (!source) return null;
+
+    const newSession = this.createSession(
+      source.panelId,
+      source.contextPath,
+      source.cognitiveContext,
+      visualContext
+    );
+
+    this.addMessage(newSession.id, initialMessage);
+    return newSession;
+  }
+
+  /**
    * Fork sesión (crear copia)
    */
   forkSession(sessionId: string): AIContextSession | null {
