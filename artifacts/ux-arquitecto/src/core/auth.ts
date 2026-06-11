@@ -76,7 +76,8 @@ export class AuthManager {
         }
       }
     } catch (error) {
-      console.error("Error cargando sesión:", error);
+      console.error("Error loading session (clearing corrupt data):", error);
+      localStorage.removeItem("auth_session");
     }
     return null;
   }

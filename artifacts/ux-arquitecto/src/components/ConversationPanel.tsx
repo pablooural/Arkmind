@@ -98,7 +98,7 @@ export function ConversationPanel({ theme, sessionId, activeResource }: Conversa
   const handleSend = useCallback(async () => {
     if (!input.trim() || !sessionId) return;
 
-    const memBlock = memory.buildMemoryBlock();
+    const memBlock = await memory.buildMemoryBlock();
     
     // Construir bloque de contexto manual
     let contextStr = "";

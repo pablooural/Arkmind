@@ -31,7 +31,8 @@ async function idbGet<T>(id: string): Promise<T | null> {
       request.onsuccess = () => resolve((request.result as T) ?? null);
       request.onerror = () => reject(request.error);
     });
-  } catch {
+  } catch (error) {
+    console.warn(`Failed to read memory ${id} from IndexedDB:`, error);
     return null;
   }
 }
@@ -57,8 +58,8 @@ async function idbRemove(id: string): Promise<void> {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
-  } catch {
-    // silently ignore
+  } catch (error) {
+    console.warn(`Failed to remove memory ${id} from IndexedDB:`, error);
   }
 }
 
@@ -246,13 +247,13 @@ export class MemoryManager {
    * Ejemplo: /proyecto/novela/cap-01
    *   carga: / → /proyecto → /proyecto/novela → /proyecto/novela/cap-01
    */
-  loadHierarchicalMemory(contextPath: string): HierarchicalMemoryResult {
+  async loadHierarchicalMemory(contextPath: string): Promise<HierarchicalMemoryResult> {
     const ancestors = getPathAncestors(contextPath);
     const chain: ContextMemory[] = [];
 
     for (const ancestor of ancestors) {
       if (this.hasContextMemory(ancestor)) {
-        chain.push(this.getContextMemory(ancestor));
+        chain.push(await this.getContextMemory(ancestor));
       }
     }
 
@@ -308,17 +309,17 @@ export class MemoryManager {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /** Crear un Cognitive Snapshot del estado actual */
-  createCognitiveSnapshot(
+  async createCognitiveSnapshot(
     contextPath: string,
     sessionId: string,
     label: string,
     trigger: CognitiveSnapshot["trigger"] = "manual",
     summary = ""
-  ): CognitiveSnapshot {
+  ): Promise<CognitiveSnapshot> {
     const id = generateId("cogsnap");
     const wm = this.getWorkingMemory(sessionId);
     const cm = this.hasContextMemory(contextPath)
-      ? this.getContextMemory(contextPath)
+      ? await this.getContextMemory(contextPath)
       : undefined;
 
     const snapshot: CognitiveSnapshot = {
@@ -400,8 +401,8 @@ export class MemoryManager {
    * Carga memoria jerárquica + working memory de la sesión y los formatea
    * como texto compacto para inyectar en el contexto del modelo.
    */
-  buildMemoryBlock(contextPath: string, sessionId: string): string {
-    const { merged, chain } = this.loadHierarchicalMemory(contextPath);
+  async buildMemoryBlock(contextPath: string, sessionId: string): Promise<string> {
+    const { merged, chain } = await this.loadHierarchicalMemory(contextPath);
     const wm = this.getWorkingMemory(sessionId);
 
     const lines: string[] = [];
@@ -461,8 +462,8 @@ export class MemoryManager {
    * Fusiona todo el conocimiento jerárquico en la memoria local del path.
    * Elimina duplicados. Recorta listas largas.
    */
-  compactContextMemory(contextPath: string): ContextMemory {
-    const { merged } = this.loadHierarchicalMemory(contextPath);
+  async compactContextMemory(contextPath: string): Promise<ContextMemory> {
+    const { merged } = await this.loadHierarchicalMemory(contextPath);
 
     const compacted: ContextMemory = {
       ...merged,
@@ -505,7 +506,7 @@ export class MemoryManager {
    * Actualizar Context Memory con lo que la IA extrajo de la conversación.
    * Llamar cuando la IA devuelve insights, decisiones o preguntas relevantes.
    */
-  integrateAIResponse(
+  async integrateAIResponse(
     contextPath: string,
     sessionId: string,
     aiText: string,
@@ -515,7 +516,7 @@ export class MemoryManager {
       addQuestion?: string;
       updateFocus?: string;
     } = {}
-  ): void {
+  ): Promise<void> {
     const { addInsight, addDecision, addQuestion, updateFocus } = options;
 
     if (addInsight) {
@@ -523,7 +524,7 @@ export class MemoryManager {
     }
 
     if (addDecision || addQuestion || updateFocus) {
-      const cm = this.getContextMemory(contextPath);
+      const cm = await this.getContextMemory(contextPath);
       const updates: Partial<ContextMemory> = {};
 
       if (addDecision)
@@ -533,7 +534,7 @@ export class MemoryManager {
       if (updateFocus)
         updates.currentFocus = updateFocus;
 
-      this.updateContextMemory(contextPath, updates);
+      await this.updateContextMemory(contextPath, updates);
     }
 
     void aiText; // disponible para análisis futuro

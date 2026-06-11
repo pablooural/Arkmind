@@ -93,12 +93,17 @@ router.post("/register", async (req, res) => {
       if (newUser) {
         const sessionToken = crypto.randomBytes(32).toString("hex");
         const expiresAt = now + 30 * 24 * 60 * 60 * 1000;
-        await supabase.from("sessions").insert({
+        const { error: sessionErr } = await supabase.from("sessions").insert({
           user_id: newUser.id,
           token: sessionToken,
           expires_at: new Date(expiresAt).toISOString(),
           last_used: new Date(now).toISOString(),
         });
+        if (sessionErr) {
+          req.log.error({ err: sessionErr }, "Failed to create session after registration");
+          res.status(500).json({ error: "Usuario creado pero no se pudo iniciar sesión. Intente iniciar sesión manualmente." });
+          return;
+        }
         const session = {
           user: { id: newUser.id, email: emailLower, name: emailLower.split("@")[0], createdAt: now },
           token: sessionToken,
@@ -172,19 +177,27 @@ router.post("/login", async (req, res) => {
         return;
       }
 
-      await supabase
+      const { error: updateErr } = await supabase
         .from("users")
         .update({ last_login: new Date(now).toISOString() })
         .eq("id", user.id);
+      if (updateErr) {
+        req.log.warn({ err: updateErr }, "Failed to update last_login (non-fatal)");
+      }
 
       const sessionToken = crypto.randomBytes(32).toString("hex");
       const expiresAt = now + 30 * 24 * 60 * 60 * 1000;
-      await supabase.from("sessions").insert({
+      const { error: sessionErr } = await supabase.from("sessions").insert({
         user_id: user.id,
         token: sessionToken,
         expires_at: new Date(expiresAt).toISOString(),
         last_used: new Date(now).toISOString(),
       });
+      if (sessionErr) {
+        req.log.error({ err: sessionErr }, "Failed to create session during login");
+        res.status(500).json({ error: "Error al crear sesión" });
+        return;
+      }
 
       const session = {
         user: { id: user.id, email: user.email, name: user.name, createdAt: now },
@@ -244,10 +257,13 @@ router.post("/verify-session", async (req, res) => {
           .single();
 
         if (!sessionErr && session && new Date(session.expires_at) >= new Date()) {
-          await supabase
+          const { error: touchErr } = await supabase
             .from("sessions")
             .update({ last_used: new Date().toISOString() })
             .eq("token", token);
+          if (touchErr) {
+            req.log.warn({ err: touchErr }, "Failed to update session last_used (non-fatal)");
+          }
 
           res.json({
             valid: true,

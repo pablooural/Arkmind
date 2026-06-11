@@ -23,8 +23,8 @@ interface UseMemoryReturn {
 
   updateWorkingMemory: (updates: Partial<WorkingMemory>) => void;
   updateContextMemory: (updates: Partial<ContextMemory>) => void;
-  buildMemoryBlock: () => string;
-  createSnapshot: (label: string, trigger?: CognitiveSnapshot["trigger"]) => CognitiveSnapshot | null;
+  buildMemoryBlock: () => Promise<string>;
+  createSnapshot: (label: string, trigger?: CognitiveSnapshot["trigger"]) => Promise<CognitiveSnapshot | null>;
   restoreSnapshot: (snapshotId: string) => void;
 
   trackResource: (resourcePath: string) => void;
@@ -46,8 +46,11 @@ export function useMemory({ sessionId, contextPath = "/" }: UseMemoryOptions): U
     const wm = memoryManager.getWorkingMemory(sessionId);
     setWorkingMemory(wm);
 
-    const { merged, chain } = memoryManager.loadHierarchicalMemory(contextPath);
-    setContextMemory(chain.length > 0 ? merged : null);
+    memoryManager.loadHierarchicalMemory(contextPath).then(({ merged, chain }) => {
+      setContextMemory(chain.length > 0 ? merged : null);
+    }).catch((error) => {
+      console.error(`Failed to load hierarchical memory for ${contextPath}:`, error);
+    });
 
     const snaps = memoryManager.listCognitiveSnapshots(contextPath);
     setSnapshots(snaps.slice(0, 10));
@@ -64,21 +67,24 @@ export function useMemory({ sessionId, contextPath = "/" }: UseMemoryOptions): U
 
   const updateContextMemory = useCallback(
     (updates: Partial<ContextMemory>) => {
-      const updated = memoryManager.updateContextMemory(contextPath, updates);
-      setContextMemory({ ...updated });
+      memoryManager.updateContextMemory(contextPath, updates).then((updated) => {
+        setContextMemory({ ...updated });
+      }).catch((error) => {
+        console.error(`Failed to update context memory for ${contextPath}:`, error);
+      });
     },
     [contextPath]
   );
 
-  const buildMemoryBlock = useCallback((): string => {
+  const buildMemoryBlock = useCallback(async (): Promise<string> => {
     if (!sessionId) return "";
     return memoryManager.buildMemoryBlock(contextPath, sessionId);
   }, [contextPath, sessionId]);
 
   const createSnapshot = useCallback(
-    (label: string, trigger: CognitiveSnapshot["trigger"] = "manual"): CognitiveSnapshot | null => {
+    async (label: string, trigger: CognitiveSnapshot["trigger"] = "manual"): Promise<CognitiveSnapshot | null> => {
       if (!sessionId) return null;
-      const snap = memoryManager.createCognitiveSnapshot(contextPath, sessionId, label, trigger);
+      const snap = await memoryManager.createCognitiveSnapshot(contextPath, sessionId, label, trigger);
       setSnapshots((prev) => [snap, ...prev].slice(0, 10));
       return snap;
     },

@@ -7,9 +7,39 @@
  */
 
 import { VisualContext, PersistentVisualState, TransientVisualState } from "./types";
+import { snapshotStore } from "./snapshotStore";
 
 export class VisualContextManager {
   private contexts: Map<string, VisualContext> = new Map();
+
+  async hydrate(): Promise<void> {
+    try {
+      const { store } = await snapshotStore.getRuntimeStore("visual_contexts", "readonly");
+      const request = store.getAll();
+      return new Promise((resolve, reject) => {
+        request.onsuccess = () => {
+          const loaded = request.result as VisualContext[];
+          loaded.forEach((vc) => this.contexts.set(vc.panelId, vc));
+          resolve();
+        };
+        request.onerror = () => reject(request.error);
+      });
+    } catch (error) {
+      console.error("Failed to hydrate visual contexts:", error);
+    }
+  }
+
+  private persist(context: VisualContext): void {
+    snapshotStore.getRuntimeStore("visual_contexts", "readwrite").then(({ tx, store }) => {
+      store.put(context);
+      tx.oncomplete = () => {};
+      tx.onerror = () => {
+        console.error(`Failed to persist visual context ${context.panelId}:`, tx.error);
+      };
+    }).catch((error) => {
+      console.error(`Failed to persist visual context ${context.panelId}:`, error);
+    });
+  }
 
   createContext(panelId: string, contextPath: string): VisualContext {
     const context: VisualContext = {

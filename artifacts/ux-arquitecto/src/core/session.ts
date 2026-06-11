@@ -263,6 +263,11 @@ export class SessionManager {
     if (deleted) {
       snapshotStore.getRuntimeStore("sessions", "readwrite").then(({ tx, store }) => {
         store.delete(sessionId);
+        tx.onerror = () => {
+          console.error(`Failed to delete session ${sessionId} from IndexedDB:`, tx.error);
+        };
+      }).catch((error) => {
+        console.error(`Failed to delete session ${sessionId} from IndexedDB:`, error);
       });
     }
     return deleted;

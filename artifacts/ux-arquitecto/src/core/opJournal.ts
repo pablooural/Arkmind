@@ -35,8 +35,7 @@ export class OpJournalManager {
         tx.onerror = () => reject(tx.error);
       });
     } catch (error) {
-      console.error("Failed to add journal entry:", error);
-      // No bloqueamos el flujo principal si el journal falla
+      console.warn("Failed to persist journal entry (entry exists in-memory only):", error);
       return id;
     }
   }
