@@ -1,18 +1,10 @@
 import { Router } from "express";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { createClient } from "@supabase/supabase-js";
+import { getSupabase } from "./supabase";
+import { localSessions } from "../middleware/auth";
 
 const router = Router();
-
-let _supabase: ReturnType<typeof createClient> | null = null;
-function getSupabase() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_API_KEY;
-  if (!url || !key || !url.startsWith("http")) return null;
-  if (!_supabase) _supabase = createClient(url, key);
-  return _supabase;
-}
 
 interface LocalUser {
   id: string;
@@ -23,7 +15,6 @@ interface LocalUser {
 }
 
 const localUsers = new Map<string, LocalUser>();
-const localSessions = new Map<string, { userId: string; expiresAt: number }>();
 
 router.post("/register", async (req, res) => {
   try {
@@ -39,7 +30,9 @@ router.post("/register", async (req, res) => {
       return;
     }
     if (!password || typeof password !== "string" || password.length < 6) {
-      res.status(400).json({ error: "La contraseña debe tener al menos 6 caracteres" });
+      res
+        .status(400)
+        .json({ error: "La contraseña debe tener al menos 6 caracteres" });
       return;
     }
     if (password !== confirmPassword) {
@@ -86,7 +79,10 @@ router.post("/register", async (req, res) => {
         .select()
         .single();
       if (insertErr) {
-        req.log.error({ err: insertErr }, "Error registrando usuario en Supabase");
+        req.log.error(
+          { err: insertErr },
+          "Error registrando usuario en Supabase",
+        );
         res.status(500).json({ error: "Error al registrar usuario" });
         return;
       }
@@ -100,7 +96,12 @@ router.post("/register", async (req, res) => {
           last_used: new Date(now).toISOString(),
         });
         const session = {
-          user: { id: newUser.id, email: emailLower, name: emailLower.split("@")[0], createdAt: now },
+          user: {
+            id: newUser.id,
+            email: emailLower,
+            name: emailLower.split("@")[0],
+            createdAt: now,
+          },
           token: sessionToken,
           expiresAt,
         };
@@ -124,7 +125,12 @@ router.post("/register", async (req, res) => {
     localSessions.set(sessionToken, { userId, expiresAt });
 
     const session = {
-      user: { id: userId, email: emailLower, name: emailLower.split("@")[0], createdAt: now },
+      user: {
+        id: userId,
+        email: emailLower,
+        name: emailLower.split("@")[0],
+        createdAt: now,
+      },
       token: sessionToken,
       expiresAt,
     };
@@ -187,7 +193,12 @@ router.post("/login", async (req, res) => {
       });
 
       const session = {
-        user: { id: user.id, email: user.email, name: user.name, createdAt: now },
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          createdAt: now,
+        },
         token: sessionToken,
         expiresAt,
       };
@@ -213,7 +224,12 @@ router.post("/login", async (req, res) => {
     localSessions.set(sessionToken, { userId: user.id, expiresAt });
 
     const session = {
-      user: { id: user.id, email: user.email, name: user.name, createdAt: user.createdAt },
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        createdAt: user.createdAt,
+      },
       token: sessionToken,
       expiresAt,
     };
@@ -243,7 +259,11 @@ router.post("/verify-session", async (req, res) => {
           .eq("token", token)
           .single();
 
-        if (!sessionErr && session && new Date(session.expires_at) >= new Date()) {
+        if (
+          !sessionErr &&
+          session &&
+          new Date(session.expires_at) >= new Date()
+        ) {
           await supabase
             .from("sessions")
             .update({ last_used: new Date().toISOString() })
@@ -274,6 +294,28 @@ router.post("/verify-session", async (req, res) => {
   } catch (error) {
     req.log.error({ err: error }, "Error en /api/auth/verify-session");
     res.status(500).json({ error: "Error verificando sesión" });
+  }
+});
+
+router.post("/logout", async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token || typeof token !== "string") {
+      res.status(400).json({ error: "Token requerido" });
+      return;
+    }
+
+    const supabase = getSupabase();
+    if (supabase) {
+      await supabase.from("sessions").delete().eq("token", token);
+    }
+
+    localSessions.delete(token);
+
+    res.json({ ok: true });
+  } catch (error) {
+    req.log.error({ err: error }, "Error en /api/auth/logout");
+    res.status(500).json({ error: "Error al cerrar sesión" });
   }
 });
 

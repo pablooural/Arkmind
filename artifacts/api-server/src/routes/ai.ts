@@ -2,17 +2,47 @@ import { Router } from "express";
 
 const router = Router();
 
+// ---------------------------------------------------------------------------
+// Validation constants
+// ---------------------------------------------------------------------------
+
+const ALLOWED_MODELS = new Set([
+  "mistral-large-latest",
+  "mistral-small-latest",
+  "open-mistral-7b",
+  "open-mixtral-8x7b",
+]);
+
+const MAX_HISTORY_LENGTH = 50;
+const MAX_MESSAGE_LENGTH = 10_000;
+
+function isValidHistoryEntry(
+  entry: unknown,
+): entry is { role: string; content: string } {
+  if (!entry || typeof entry !== "object") return false;
+  const e = entry as Record<string, unknown>;
+  return (
+    (e["role"] === "user" || e["role"] === "assistant") &&
+    typeof e["content"] === "string" &&
+    (e["content"] as string).length <= MAX_MESSAGE_LENGTH
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Routes
+// ---------------------------------------------------------------------------
+
 router.get("/config", (_req, res) => {
   res.json({
     mistral: {
-      model: process.env.MISTRAL_MODEL || "mistral-small-latest",
-      temperature: parseFloat(process.env.MISTRAL_TEMPERATURE || "0.7"),
-      maxTokens: parseInt(process.env.MISTRAL_MAX_TOKENS || "2048"),
+      model: process.env["MISTRAL_MODEL"] || "mistral-small-latest",
+      temperature: parseFloat(process.env["MISTRAL_TEMPERATURE"] || "0.7"),
+      maxTokens: parseInt(process.env["MISTRAL_MAX_TOKENS"] || "2048"),
     },
     supabase: {
-      url: process.env.SUPABASE_URL,
+      url: process.env["SUPABASE_URL"],
     },
-    configured: !!process.env.MISTRAL_API_KEY,
+    configured: !!process.env["MISTRAL_API_KEY"],
   });
 });
 
@@ -20,17 +50,34 @@ router.post("/message", async (req, res) => {
   try {
     const { message, model, history, resourceContext, memoryBlock } = req.body;
 
-    if (!message) {
+    if (!message || typeof message !== "string") {
       res.status(400).json({ error: "Mensaje requerido" });
       return;
     }
 
-    if (!process.env.MISTRAL_API_KEY) {
+    if (message.length > MAX_MESSAGE_LENGTH) {
+      res.status(400).json({ error: "Mensaje demasiado largo" });
+      return;
+    }
+
+    if (!process.env["MISTRAL_API_KEY"]) {
       res.status(500).json({ error: "Mistral API key no configurada" });
       return;
     }
 
-    const mistralModel = model || process.env.MISTRAL_MODEL || "mistral-small-latest";
+    // Validate model against allowlist
+    const mistralModel =
+      model && ALLOWED_MODELS.has(model)
+        ? model
+        : process.env["MISTRAL_MODEL"] || "mistral-small-latest";
+
+    // Validate history array
+    let validatedHistory: { role: string; content: string }[] = [];
+    if (Array.isArray(history)) {
+      validatedHistory = history
+        .filter(isValidHistoryEntry)
+        .slice(-MAX_HISTORY_LENGTH);
+    }
 
     const systemMessages: { role: string; content: string }[] = [
       {
@@ -40,21 +87,30 @@ router.post("/message", async (req, res) => {
       },
     ];
 
-    // Inyectar memoria del runtime si existe
-    if (memoryBlock && typeof memoryBlock === "string" && memoryBlock.trim().length > 0) {
+    if (
+      memoryBlock &&
+      typeof memoryBlock === "string" &&
+      memoryBlock.trim().length > 0
+    ) {
       systemMessages.push({
         role: "system",
-        content: memoryBlock,
+        content: memoryBlock.slice(0, MAX_MESSAGE_LENGTH),
       });
     }
 
-    // Inyectar contexto del recurso activo si existe
-    if (resourceContext && resourceContext.name) {
+    if (resourceContext && typeof resourceContext.name === "string") {
       const typeLabels: Record<string, string> = {
-        file: "archivo", folder: "carpeta", conversation: "conversación",
-        story: "historia", chapter: "capítulo", snapshot: "snapshot",
-        task: "tarea", note: "nota", "ai-node": "nodo IA",
-        branch: "rama", document: "documento",
+        file: "archivo",
+        folder: "carpeta",
+        conversation: "conversación",
+        story: "historia",
+        chapter: "capítulo",
+        snapshot: "snapshot",
+        task: "tarea",
+        note: "nota",
+        "ai-node": "nodo IA",
+        branch: "rama",
+        document: "documento",
       };
       const label = typeLabels[resourceContext.type] || resourceContext.type;
       systemMessages.push({
@@ -65,7 +121,7 @@ router.post("/message", async (req, res) => {
 
     const messages = [
       ...systemMessages,
-      ...(Array.isArray(history) ? history : []),
+      ...validatedHistory,
       { role: "user", content: message },
     ];
 
@@ -73,13 +129,13 @@ router.post("/message", async (req, res) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.MISTRAL_API_KEY}`,
+        Authorization: `Bearer ${process.env["MISTRAL_API_KEY"]}`,
       },
       body: JSON.stringify({
         model: mistralModel,
         messages,
-        temperature: parseFloat(process.env.MISTRAL_TEMPERATURE || "0.7"),
-        max_tokens: parseInt(process.env.MISTRAL_MAX_TOKENS || "2048"),
+        temperature: parseFloat(process.env["MISTRAL_TEMPERATURE"] || "0.7"),
+        max_tokens: parseInt(process.env["MISTRAL_MAX_TOKENS"] || "2048"),
         stream: false,
       }),
     });
@@ -91,7 +147,9 @@ router.post("/message", async (req, res) => {
       return;
     }
 
-    const data = await response.json() as any;
+    const data = (await response.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
     const content = data.choices?.[0]?.message?.content;
 
     res.json({ content });
