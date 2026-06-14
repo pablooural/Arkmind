@@ -1,0 +1,396 @@
+UX Arquitecto — Cambio de Enfoque Arquitectónico
+
+Cambio de paradigma
+
+El proyecto deja de pensarse como un IDE tradicional centrado en programación.
+
+El nuevo enfoque define el sistema como un:
+
+Context Runtime / Resource Runtime
+
+Un entorno universal de navegación, edición, bifurcación y conversación contextual sobre recursos vivos.
+
+La programación pasa a ser solamente uno de los tipos de contenido posibles dentro del sistema.
+
+Objetivo del sistema
+
+Construir un entorno capaz de:
+
+navegar estructuras complejas
+
+editar recursos
+
+mantener contexto persistente
+
+generar bifurcaciones
+
+asociar conversaciones a nodos
+
+crear snapshots automáticos
+
+restaurar estados
+
+trabajar sobre estructuras evolutivas
+
+El sistema debe servir tanto para:
+
+código
+
+narrativa
+
+investigación
+
+diseño
+
+documentación
+
+simulaciones
+
+ideas ramificadas
+
+sin cambiar la arquitectura base.
+
+Cambio semántico principal
+
+La arquitectura no debe asumir que todo gira alrededor de archivos de código.
+
+La unidad fundamental deja de ser:
+
+FileNode 
+
+y pasa a ser:
+
+ResourceNode 
+
+Entidades principales
+
+ResourceNode
+
+Representa cualquier recurso navegable del sistema.
+
+Puede ser:
+
+archivo
+
+carpeta
+
+conversación
+
+historia
+
+capítulo
+
+snapshot
+
+tarea
+
+nota
+
+nodo IA
+
+rama narrativa
+
+documento
+
+recurso futuro
+
+Ejemplo:
+
+type ResourceType = | "file" | "folder" | "conversation" | "story" | "chapter" | "snapshot" | "task" | "note"; 
+
+Context Runtime
+
+El núcleo real del proyecto es el manejo de contextos vivos.
+
+El sistema debe permitir:
+
+cambio de contexto raíz
+
+carga lazy
+
+caché contextual
+
+navegación contextual
+
+conversaciones por nodo
+
+snapshots por contexto
+
+restauración de estados
+
+El objetivo principal no es editar código.
+
+El objetivo principal es:
+
+administrar contextos complejos
+
+mantener coherencia contextual
+
+permitir evolución estructural segura
+
+Cambio de nombres recomendados
+
+Renombrar
+
+FileExplorer 
+
+por:
+
+ResourceExplorer 
+
+o:
+
+ContextExplorer 
+
+Renombrar
+
+FileNode 
+
+por:
+
+ResourceNode 
+
+Renombrar
+
+activeFile 
+
+por:
+
+activeResource 
+
+Renombrar
+
+ChatPanel 
+
+por:
+
+ConversationPanel 
+
+o:
+
+ContextPanel 
+
+Separación de contextos
+
+El sistema debe distinguir claramente:
+
+VisualContext
+
+Lo que el usuario está viendo/manipulando.
+
+Ejemplo:
+
+panel activo
+
+recurso abierto
+
+scroll
+
+selección
+
+layout
+
+modo visual
+
+CognitiveContext
+
+Lo que la IA entiende y considera importante.
+
+Ejemplo:
+
+foco actual
+
+intención
+
+archivos relevantes
+
+restricciones
+
+insights
+
+preguntas abiertas
+
+AIContextSession
+
+Contenedor que une:
+
+conversación
+
+memoria contextual
+
+snapshots
+
+estado cognitivo
+
+referencias visuales
+
+Filosofía de navegación
+
+La navegación debe ser:
+
+contextual
+
+fluida
+
+viva
+
+ramificable
+
+El sistema debe tratar:
+
+carpetas
+
+historias
+
+capítulos
+
+conversaciones
+
+ramas
+
+snapshots
+
+como estructuras equivalentes dentro del runtime.
+
+Exploración de archivos
+
+La exploración de archivos reales debe existir.
+
+Pero inicialmente:
+
+aislada
+
+segura
+
+reversible
+
+Sandbox obligatoria
+
+Toda operación sobre archivos reales debe ejecutarse primero en sandbox.
+
+Nunca trabajar directamente sobre archivos originales.
+
+Estrategia inicial recomendada
+
+Upload seguro
+
+Cuando un usuario sube una carpeta/proyecto:
+
+Se crea automáticamente una copia aislada
+
+La copia se mueve al workspace sandbox
+
+Toda navegación/modificación ocurre dentro de esa copia
+
+Los originales nunca se tocan directamente
+
+Snapshots automáticos
+
+Antes de cualquier operación importante:
+
+edición
+
+escritura
+
+refactor
+
+generación
+
+ejecución
+
+el sistema debe:
+
+guardar snapshot automático
+
+validar operación
+
+ejecutar en sandbox
+
+permitir rollback inmediato
+
+MVP real recomendado
+
+El MVP no debe enfocarse primero en:
+
+compiladores
+
+LSP
+
+debugging
+
+terminales complejas
+
+tooling pesado de programación
+
+El MVP debe enfocarse en:
+
+Núcleo contextual
+
+navegación
+
+edición básica
+
+conversaciones por nodo
+
+snapshots
+
+ramas
+
+persistencia contextual
+
+explorer contextual
+
+carga lazy
+
+sandbox
+
+Objetivo técnico real
+
+Construir un runtime universal de contextos y recursos.
+
+No solamente un editor de código.
+
+Porque si el runtime contextual funciona:
+
+escribir código
+
+escribir TXT
+
+escribir Markdown
+
+escribir historias
+
+escribir documentación
+
+termina siendo esencialmente el mismo problema.
+
+Prioridad actual
+
+Fase inmediata
+
+Consolidar entidades base
+
+Implementar ResourceExplorer real
+
+Implementar navegación contextual
+
+Implementar snapshots automáticos
+
+Implementar sandbox de workspace
+
+Implementar edición básica universal
+
+Asociar conversaciones a nodos
+
+Después de eso:
+
+IA avanzada
+
+multifagente
+
+automatización compleja
+
+programación avanzada
+
+podrán agregarse sin romper el núcleo.
+
