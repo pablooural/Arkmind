@@ -1,0 +1,576 @@
+/**
+ * Memory Manager — Paso 5: Sistema de Memoria Central
+ *
+ * Implementa los 5 pasos del sistema de memoria:
+ *   1. Working Memory   — estado cognitivo inmediato (in-memory + localStorage)
+ *   2. Context Memory   — memoria persistente por contexto (localStorage)
+ *   3. Hierarchical     — herencia de memoria por árbol de paths
+ *   4. Cognitive Snapshots — snapshots del estado mental/contextual
+ *   5. Memory Manager   — carga, herencia, compactación, persistencia
+ *
+ * Persistencia: localStorage con prefijos `uxarq:mem:` y `uxarq:snap:`
+ * Sin vector DB, sin embeddings — memoria contextual viva y jerárquica.
+ */
+
+import { WorkingMemory, ContextMemory, CognitiveSnapshot } from "./types";
+import { snapshotStore } from "./snapshotStore";
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function generateId(prefix: string): string {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
+// ─── IndexedDB Persistence Helpers ──────────────────────────────────────────
+
+async function idbGet<T>(id: string): Promise<T | null> {
+  try {
+    const { store } = await snapshotStore.getRuntimeStore("memory", "readonly");
+    const request = store.get(id);
+    return new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve((request.result as T) ?? null);
+      request.onerror = () => reject(request.error);
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function idbSet(id: string, value: unknown): Promise<void> {
+  try {
+    const { tx, store } = await snapshotStore.getRuntimeStore("memory", "readwrite");
+    store.put({ ...(value as object), id });
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (error) {
+    console.error(`Failed to persist memory ${id}:`, error);
+  }
+}
+
+async function idbRemove(id: string): Promise<void> {
+  try {
+    const { tx, store } = await snapshotStore.getRuntimeStore("memory", "readwrite");
+    store.delete(id);
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch {
+    // silently ignore
+  }
+}
+
+/** Devuelve todos los segmentos de un path, de raíz a hoja. */
+function getPathAncestors(contextPath: string): string[] {
+  const parts = contextPath.replace(/\/$/, "").split("/").filter(Boolean);
+  const ancestors: string[] = ["/"];
+  let current = "";
+  for (const part of parts) {
+    current += "/" + part;
+    ancestors.push(current);
+  }
+  return ancestors;
+}
+
+// ─── Default factories ────────────────────────────────────────────────────────
+
+function emptyWorkingMemory(): WorkingMemory {
+  return {
+    focus: "",
+    intent: "",
+    activeResources: [],
+    constraints: [],
+    keyInsights: [],
+    openQuestions: [],
+    temporaryNotes: [],
+    lastUpdated: Date.now(),
+  };
+}
+
+function emptyContextMemory(contextPath: string): ContextMemory {
+  return {
+    contextPath,
+    purpose: "",
+    currentFocus: "",
+    keyDecisions: [],
+    constraints: [],
+    relevantResources: [],
+    openQuestions: [],
+    summary: "",
+    lastUpdated: Date.now(),
+    version: 1,
+  };
+}
+
+// ─── MemoryManager ────────────────────────────────────────────────────────────
+
+export class MemoryManager {
+  /** Working Memory vive en RAM durante la sesión, indexada por sessionId */
+  private workingMemories: Map<string, WorkingMemory> = new Map();
+
+  /** Context Memory en RAM, sincronizada con IndexedDB */
+  private contextMemories: Map<string, ContextMemory> = new Map();
+
+  /** Cognitive Snapshots en RAM, sincronizados con IndexedDB */
+  private cognitiveSnapshots: Map<string, CognitiveSnapshot> = new Map();
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PASO 1 — Working Memory
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** Cargar todas las memorias desde IndexedDB */
+  async hydrate(): Promise<void> {
+    try {
+      const { store } = await snapshotStore.getRuntimeStore("memory", "readonly");
+      const request = store.getAll();
+      return new Promise((resolve, reject) => {
+        request.onsuccess = () => {
+          const records = request.result as any[];
+          records.forEach((r) => {
+            if (!r?.id) return;
+            if (r.id.startsWith("wkmem:")) {
+              this.workingMemories.set(r.id.replace("wkmem:", ""), r);
+            } else if (r.id.startsWith("mem:")) {
+              this.contextMemories.set(r.id.replace("mem:", ""), r);
+            } else if (r.id.startsWith("cogsnap_")) {
+              this.cognitiveSnapshots.set(r.id, r);
+            }
+          });
+          resolve();
+        };
+        request.onerror = () => reject(request.error);
+      });
+    } catch (error) {
+      console.error("Failed to hydrate memory:", error);
+    }
+  }
+
+  /** Obtener o crear Working Memory para una sesión */
+  getWorkingMemory(sessionId: string): WorkingMemory {
+    if (this.workingMemories.has(sessionId)) {
+      return this.workingMemories.get(sessionId)!;
+    }
+
+    const fresh = emptyWorkingMemory();
+    this.workingMemories.set(sessionId, fresh);
+    return fresh;
+  }
+
+  /** Actualizar Working Memory (merge parcial) */
+  updateWorkingMemory(sessionId: string, updates: Partial<WorkingMemory>): WorkingMemory {
+    const current = this.getWorkingMemory(sessionId);
+    const updated: WorkingMemory = {
+      ...current,
+      ...updates,
+      lastUpdated: Date.now(),
+    };
+    this.workingMemories.set(sessionId, updated);
+    idbSet(`wkmem:${sessionId}`, updated);
+    return updated;
+  }
+
+  /** Agregar un insight a la Working Memory */
+  addInsightToWorking(sessionId: string, insight: string): void {
+    const wm = this.getWorkingMemory(sessionId);
+    if (!wm.keyInsights.includes(insight)) {
+      this.updateWorkingMemory(sessionId, {
+        keyInsights: [...wm.keyInsights.slice(-9), insight],
+      });
+    }
+  }
+
+  /** Agregar un recurso activo */
+  addActiveResource(sessionId: string, resourcePath: string): void {
+    const wm = this.getWorkingMemory(sessionId);
+    if (!wm.activeResources.includes(resourcePath)) {
+      this.updateWorkingMemory(sessionId, {
+        activeResources: [...wm.activeResources.slice(-4), resourcePath],
+      });
+    }
+  }
+
+  /** Limpiar Working Memory de sesión (al archivar) */
+  clearWorkingMemory(sessionId: string): void {
+    this.workingMemories.delete(sessionId);
+    idbRemove(`wkmem:${sessionId}`);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PASO 2 — Context Memory
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** Cargar Context Memory para una ruta (síncrono desde caché en RAM) */
+  getContextMemory(contextPath: string): ContextMemory {
+    return this.contextMemories.get(contextPath) ?? emptyContextMemory(contextPath);
+  }
+
+  /** Guardar Context Memory */
+  saveContextMemory(memory: ContextMemory): ContextMemory {
+    const updated: ContextMemory = {
+      ...memory,
+      lastUpdated: Date.now(),
+      version: (memory.version ?? 0) + 1,
+    };
+    this.contextMemories.set(memory.contextPath, updated);
+    void idbSet(`mem:${memory.contextPath}`, updated);
+    return updated;
+  }
+
+  /** Actualizar campos de Context Memory (merge parcial) */
+  updateContextMemory(contextPath: string, updates: Partial<ContextMemory>): ContextMemory {
+    const current = this.getContextMemory(contextPath);
+    const updated: ContextMemory = {
+      ...current,
+      ...updates,
+      contextPath,
+      lastUpdated: Date.now(),
+      version: current.version + 1,
+    };
+    this.contextMemories.set(contextPath, updated);
+    void idbSet(`mem:${contextPath}`, updated);
+    return updated;
+  }
+
+  /** Verificar si un contexto tiene memoria guardada */
+  hasContextMemory(contextPath: string): boolean {
+    return this.contextMemories.has(contextPath);
+  }
+
+  /** Eliminar Context Memory */
+  clearContextMemory(contextPath: string): void {
+    idbRemove(`mem:${contextPath}`);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PASO 3 — Hierarchical Memory
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Cargar memoria jerárquica completa para un path.
+   * Hereda desde raíz hacia el path actual, fusionando con precedencia local.
+   *
+   * Ejemplo: /proyecto/novela/cap-01
+   *   carga: / → /proyecto → /proyecto/novela → /proyecto/novela/cap-01
+   */
+  loadHierarchicalMemory(contextPath: string): HierarchicalMemoryResult {
+    const ancestors = getPathAncestors(contextPath);
+    const chain: ContextMemory[] = [];
+
+    for (const ancestor of ancestors) {
+      if (this.hasContextMemory(ancestor)) {
+        chain.push(this.getContextMemory(ancestor));
+      }
+    }
+
+    // La memoria más local tiene precedencia
+    const merged = this.mergeContextChain(chain, contextPath);
+
+    return {
+      contextPath,
+      chain,
+      merged,
+      depth: chain.length,
+    };
+  }
+
+  /** Fusionar cadena de memorias: más cercana tiene precedencia */
+  private mergeContextChain(chain: ContextMemory[], targetPath: string): ContextMemory {
+    if (chain.length === 0) return emptyContextMemory(targetPath);
+
+    const base = emptyContextMemory(targetPath);
+
+    // Acumular de raíz a hoja (la hoja sobreescribe)
+    const allDecisions = new Set<string>();
+    const allConstraints = new Set<string>();
+    const allResources = new Set<string>();
+    const allQuestions = new Set<string>();
+
+    for (const mem of chain) {
+      mem.keyDecisions.forEach((d) => allDecisions.add(d));
+      mem.constraints.forEach((c) => allConstraints.add(c));
+      mem.relevantResources.forEach((r) => allResources.add(r));
+      mem.openQuestions.forEach((q) => allQuestions.add(q));
+    }
+
+    const local = chain[chain.length - 1];
+
+    return {
+      ...base,
+      contextPath: targetPath,
+      purpose: local.purpose || chain.find((m) => m.purpose)?.purpose || "",
+      currentFocus: local.currentFocus,
+      summary: local.summary,
+      keyDecisions: [...allDecisions],
+      constraints: [...allConstraints],
+      relevantResources: [...allResources],
+      openQuestions: [...allQuestions],
+      lastUpdated: local.lastUpdated,
+      version: local.version,
+    };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PASO 4 — Cognitive Snapshots
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /** Crear un Cognitive Snapshot del estado actual */
+  createCognitiveSnapshot(
+    contextPath: string,
+    sessionId: string,
+    label: string,
+    trigger: CognitiveSnapshot["trigger"] = "manual",
+    summary = ""
+  ): CognitiveSnapshot {
+    const id = generateId("cogsnap");
+    const wm = this.getWorkingMemory(sessionId);
+    const cm = this.hasContextMemory(contextPath)
+      ? this.getContextMemory(contextPath)
+      : undefined;
+
+    const snapshot: CognitiveSnapshot = {
+      id,
+      contextPath,
+      label,
+      summary: summary || wm.focus || `Snapshot: ${label}`,
+      workingMemory: { ...wm },
+      contextMemory: cm ? { ...cm } : undefined,
+      relatedResources: [...wm.activeResources],
+      trigger,
+      createdAt: Date.now(),
+    };
+
+    this.cognitiveSnapshots.set(id, snapshot);
+    this.persistCognitiveSnapshot(snapshot);
+
+    return snapshot;
+  }
+
+  /** Obtener snapshot cognitivo por ID */
+  getCognitiveSnapshot(id: string): CognitiveSnapshot | undefined {
+    return this.cognitiveSnapshots.get(id);
+  }
+
+  /** Listar snapshots cognitivos de un contexto */
+  listCognitiveSnapshots(contextPath: string): CognitiveSnapshot[] {
+    const results = Array.from(this.cognitiveSnapshots.values()).filter(
+      (snap) => contextPath === "" || snap.contextPath === contextPath,
+    );
+    return results.sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  /** Restaurar Working Memory desde un Cognitive Snapshot */
+  restoreFromSnapshot(snapshotId: string, sessionId: string): WorkingMemory | null {
+    const snap = this.getCognitiveSnapshot(snapshotId);
+    if (!snap) return null;
+
+    const restored: WorkingMemory = {
+      ...snap.workingMemory,
+      lastUpdated: Date.now(),
+    };
+
+    this.workingMemories.set(sessionId, restored);
+    idbSet(`wkmem:${sessionId}`, restored);
+
+    return restored;
+  }
+
+  /** Eliminar snapshot cognitivo */
+  deleteCognitiveSnapshot(id: string): void {
+    this.cognitiveSnapshots.delete(id);
+    idbRemove(id);
+  }
+
+  private persistCognitiveSnapshot(snap: CognitiveSnapshot): void {
+    idbSet(snap.id, snap);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // PASO 5 — Memory Manager: compactación, resumen, invalidación
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /**
+   * Construir el bloque de memoria para el system prompt de la IA.
+   * Carga memoria jerárquica + working memory de la sesión y los formatea
+   * como texto compacto para inyectar en el contexto del modelo.
+   */
+  buildMemoryBlock(contextPath: string, sessionId: string): string {
+    const { merged, chain } = this.loadHierarchicalMemory(contextPath);
+    const wm = this.getWorkingMemory(sessionId);
+
+    const lines: string[] = [];
+
+    lines.push("## Memoria del Runtime");
+    lines.push("");
+
+    // Working Memory
+    if (wm.focus || wm.intent) {
+      lines.push("### Estado Actual");
+      if (wm.focus)  lines.push(`- **Foco:** ${wm.focus}`);
+      if (wm.intent) lines.push(`- **Intención:** ${wm.intent}`);
+      if (wm.activeResources.length > 0)
+        lines.push(`- **Recursos activos:** ${wm.activeResources.join(", ")}`);
+      if (wm.constraints.length > 0)
+        lines.push(`- **Restricciones:** ${wm.constraints.join("; ")}`);
+      if (wm.keyInsights.length > 0) {
+        lines.push("- **Insights clave:**");
+        wm.keyInsights.slice(-5).forEach((i) => lines.push(`  - ${i}`));
+      }
+      if (wm.openQuestions.length > 0) {
+        lines.push("- **Preguntas abiertas:**");
+        wm.openQuestions.slice(-3).forEach((q) => lines.push(`  - ${q}`));
+      }
+      lines.push("");
+    }
+
+    // Context Memory (jerárquica)
+    if (chain.length > 0) {
+      lines.push("### Memoria de Contexto");
+      if (merged.purpose)      lines.push(`- **Propósito:** ${merged.purpose}`);
+      if (merged.currentFocus) lines.push(`- **Foco del contexto:** ${merged.currentFocus}`);
+      if (merged.summary)      lines.push(`- **Resumen:** ${merged.summary}`);
+      if (merged.keyDecisions.length > 0) {
+        lines.push("- **Decisiones:**");
+        merged.keyDecisions.slice(-6).forEach((d) => lines.push(`  - ${d}`));
+      }
+      if (merged.constraints.length > 0) {
+        lines.push("- **Restricciones heredadas:**");
+        merged.constraints.slice(-4).forEach((c) => lines.push(`  - ${c}`));
+      }
+      if (merged.openQuestions.length > 0) {
+        lines.push("- **Preguntas del contexto:**");
+        merged.openQuestions.slice(-3).forEach((q) => lines.push(`  - ${q}`));
+      }
+      if (chain.length > 1) {
+        lines.push(`- **Herencia:** ${chain.map((m) => m.contextPath).join(" → ")}`);
+      }
+      lines.push("");
+    }
+
+    return lines.join("\n");
+  }
+
+  /**
+   * Compactar Context Memory de un path:
+   * Fusiona todo el conocimiento jerárquico en la memoria local del path.
+   * Elimina duplicados. Recorta listas largas.
+   */
+  compactContextMemory(contextPath: string): ContextMemory {
+    const { merged } = this.loadHierarchicalMemory(contextPath);
+
+    const compacted: ContextMemory = {
+      ...merged,
+      contextPath,
+      keyDecisions:      [...new Set(merged.keyDecisions)].slice(-20),
+      constraints:       [...new Set(merged.constraints)].slice(-10),
+      relevantResources: [...new Set(merged.relevantResources)].slice(-15),
+      openQuestions:     [...new Set(merged.openQuestions)].slice(-10),
+      lastUpdated:       Date.now(),
+      version:           merged.version + 1,
+    };
+
+    this.saveContextMemory(compacted);
+    return compacted;
+  }
+
+  /**
+   * Invalidar memorias obsoletas (> N días) de un contexto.
+   * Respeta la memoria local más reciente.
+   */
+  invalidateOldSnapshots(daysOld = 30): number {
+    const cutoff = Date.now() - daysOld * 24 * 60 * 60 * 1000;
+    let removed = 0;
+
+    for (const [id, snap] of this.cognitiveSnapshots) {
+      if (snap.createdAt < cutoff) {
+        this.cognitiveSnapshots.delete(id);
+        void idbRemove(id);
+        removed++;
+      }
+    }
+
+    return removed;
+  }
+
+  /**
+   * Actualizar Context Memory con lo que la IA extrajo de la conversación.
+   * Llamar cuando la IA devuelve insights, decisiones o preguntas relevantes.
+   */
+  integrateAIResponse(
+    contextPath: string,
+    sessionId: string,
+    aiText: string,
+    options: {
+      addInsight?: string;
+      addDecision?: string;
+      addQuestion?: string;
+      updateFocus?: string;
+    } = {}
+  ): void {
+    const { addInsight, addDecision, addQuestion, updateFocus } = options;
+
+    if (addInsight) {
+      this.addInsightToWorking(sessionId, addInsight);
+    }
+
+    if (addDecision || addQuestion || updateFocus) {
+      const cm = this.getContextMemory(contextPath);
+      const updates: Partial<ContextMemory> = {};
+
+      if (addDecision)
+        updates.keyDecisions = [...cm.keyDecisions, addDecision];
+      if (addQuestion)
+        updates.openQuestions = [...cm.openQuestions, addQuestion];
+      if (updateFocus)
+        updates.currentFocus = updateFocus;
+
+      this.updateContextMemory(contextPath, updates);
+    }
+
+    void aiText; // disponible para análisis futuro
+  }
+
+  /**
+   * Exportar toda la memoria del workspace como objeto JSON.
+   * Útil para debugging y backup.
+   */
+  exportAll(): Record<string, unknown> {
+    return {
+      workingMemories: Object.fromEntries(this.workingMemories),
+      contextMemories: Object.fromEntries(this.contextMemories),
+      cognitiveSnapshots: Object.fromEntries(this.cognitiveSnapshots),
+    };
+  }
+
+  /**
+   * Limpiar toda la memoria del workspace.
+   */
+  clearAll(): void {
+    for (const sessionId of this.workingMemories.keys()) {
+      void idbRemove(`wkmem:${sessionId}`);
+    }
+    for (const contextPath of this.contextMemories.keys()) {
+      void idbRemove(`mem:${contextPath}`);
+    }
+    for (const id of this.cognitiveSnapshots.keys()) {
+      void idbRemove(id);
+    }
+    this.workingMemories.clear();
+    this.contextMemories.clear();
+    this.cognitiveSnapshots.clear();
+  }
+}
+
+// ─── Tipos auxiliares ─────────────────────────────────────────────────────────
+
+export interface HierarchicalMemoryResult {
+  contextPath: string;
+  chain: ContextMemory[];
+  merged: ContextMemory;
+  depth: number;
+}
+
+// ─── Singleton ────────────────────────────────────────────────────────────────
+
+export const memoryManager = new MemoryManager();
