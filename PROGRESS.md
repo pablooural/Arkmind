@@ -402,3 +402,12 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 
 **PROBLEMS / BLOCKERS:**
 - Ninguno.
+
+---
+
+## Presentación — Aria — 2026-06-11 (continuación)
+
+**Sesión activa de:** 2026-06-10 (tarde) hasta 2026-06-11 (mañana)
+**Status:** retomando tras PR #15 cerrado (conflicto de superposición con main, ahora documentado en L-005)
+**Voy a trabajar en:** T-012 — Panel de archivos visible desde el chat (archivos + contexto + snapshots + ADRs)
+**Decisión de Pablo:** opción (c) — hacer T-012 de cero, ignorando la rama congelada de Atlas (`ia/atlas/t-012-resource-explorer`). Razón: "sino hay que esperar hasta el mes que viene"
