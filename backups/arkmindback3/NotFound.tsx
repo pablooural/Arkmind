@@ -1,0 +1,437 @@
+/**
+ * AI Manager
+ *
+ * ADR 0003: la IA es un provider opcional. El runtime arranca con NoopAIProvider
+ * (no hace nada) y puede inyectar un provider real (MistralAIProvider, o futuro
+ * OpenAI, Anthropic, local) vía `setProvider(...)` o como atajo vía `setAIConfig(...)`.
+ *
+ * Spec A4: la IA es operativa pero siempre propone, nunca ejecuta sin ACEPTAR.
+ * Spec A3: los providers externos son opcionales. El runtime funciona sin ellos.
+ *
+ * Backwards-compat preservado:
+ *   - `aiManager` (singleton), `AIManager` (clase), `AIConfig`, `SupabaseConfig`,
+ *     `AIMessage`, `MistralModel` se siguen exportando con la misma forma.
+ *   - `setAIConfig({ provider: "mistral", ... })` sigue funcionando: instala
+ *     internamente un MistralAIProvider.
+ *   - `isConfigured()` ahora delega a `provider.isAvailable()`, pero la
+ *     semántica observable (true solo si Mistral tiene apiKey) se mantiene.
+ */
+import { StructuredMessage } from "./types";
+import { ActiveContext, contextEnricher } from "./ia-context-bridge";
+
+// ────────────────────────────────────────────────────────────────────────────
+// Public types (existentes — backwards-compat)
+// ────────────────────────────────────────────────────────────────────────────
+
+export type MistralModel =
+  | "mistral-large-latest"
+  | "mistral-small-latest"
+  | "open-mistral-7b"
+  | "open-mixtral-8x7b";
+
+export interface AIConfig {
+  provider: "mistral";
+  model: MistralModel;
+  apiKey: string;
+  baseUrl?: string;
+  temperature?: number;
+  maxTokens?: number;
+}
+
+export interface SupabaseConfig {
+  projectUrl: string;
+  apiKey: string;
+  enabled: boolean;
+}
+
+export interface AIMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// AIProvider — interfaz nueva (ADR 0003, alineada con A3 y A4)
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Tipos de pedido que un caller puede hacer a la IA.
+ * El manager dispatcha según `kind`; el provider decide cómo responder.
+ *
+ * Merge resolution: agregamos la variante `chat` (de Manus) al type union
+ * existente del HEAD, manteniendo el `& { activeContext?: ActiveContext }`
+ * que es el contrato oficial del ia-context-bridge (ADR 0007).
+ */
+export type AIRequest = (
+  | { kind: "chat"; message: string; history?: AIMessage[]; context?: string; memoryBlock?: string }
+  | { kind: "structural_change"; context: string; diff?: string }
+  | { kind: "explain"; target: string; question: string }
+  | { kind: "summarize"; content: string }
+) & { activeContext?: ActiveContext };
+
+/**
+ * Propuesta que devuelve la IA. Es siempre declarativa: el caller decide si
+ * aplicarla, pedir más detalle o descartarla. Ver A4.
+ *
+ * Discriminated union por `kind` para que el caller pueda hacer pattern-match.
+ */
+export type AIProposal =
+  | { kind: "noop"; summary: string }
+  | { kind: "suggestion"; title: string; rationale: string; patch?: string }
+  | { kind: "explanation"; text: string }
+  | { kind: "summary"; text: string }
+  | { kind: "insight_proposal"; content: string; importance: 1 | 2 | 3 | 4 | 5 };
+
+/**
+ * Contrato público de cualquier provider de IA enchufable al runtime.
+ *
+ * Reglas:
+ *   - `isAvailable()` es síncrono. Permite que `AIManager.isConfigured()` siga
+ *     siendo síncrono (los hooks lo llaman en render).
+ *   - `propose()` NUNCA muta estado. Devuelve una propuesta; el caller decide.
+ *   - `id` es estable y lowercase. Sirve para logging y para el switch de
+ *     `setAIConfig`.
+ */
+export interface AIProvider {
+  readonly id: string;
+  isAvailable(): boolean;
+  propose(request: AIRequest): Promise<AIProposal>;
+}
+
+/**
+ * Provider por defecto. No hace nada externo. El runtime arranca con este
+ * provider aunque no haya configuración de IA.
+ *
+ *   - `isAvailable() === false` → `AIManager.isConfigured()` devuelve `false`.
+ *   - `propose()` devuelve `{ kind: "noop", summary }` para que el caller
+ *     sepa que la IA no hizo nada y pueda manejarlo explícitamente.
+ */
+export class NoopAIProvider implements AIProvider {
+  readonly id = "noop";
+
+  isAvailable(): false {
+    return false;
+  }
+
+  async propose(_request: AIRequest): Promise<{ kind: "noop"; summary: string }> {
+    return {
+      kind: "noop",
+      summary: "IA no configurada — el provider activo es NoopAIProvider. " +
+               "Llama a aiManager.setAIConfig({ provider: 'mistral', apiKey, model }) " +
+               "para habilitar una IA real.",
+    };
+  }
+}
+
+/**
+ * Provider concreto para Mistral. Encapsula la config existente (model, apiKey,
+ * baseUrl, temperature, maxTokens) detrás de la interfaz AIProvider.
+ *
+ * `propose()` es un stub estructurado en esta versión: devuelve una propuesta
+ * coherente con el `kind` del request pero NO hace fetch HTTP. La llamada
+ * real a la API de Mistral queda para un módulo dedicado (ver
+ * `.arkmind/decisions/0003-ai-as-optional-provider.md`, sección "Riesgos").
+ *
+ * Razón del stub: el código original tampoco hacía fetch — solo configuraba.
+ * Mantenemos el mismo nivel de "operación" para no introducir I/O sin tests.
+ */
+export class MistralAIProvider implements AIProvider {
+  readonly id = "mistral";
+  private config: AIConfig;
+
+  constructor(config: AIConfig) {
+    this.config = { ...config };
+  }
+
+  isAvailable(): boolean {
+    return !!this.config.apiKey && this.config.apiKey.trim().length > 0;
+  }
+
+  getConfig(): AIConfig {
+    return { ...this.config };
+  }
+
+  setModel(model: MistralModel): void {
+    this.config = { ...this.config, model };
+  }
+
+  private buildSystemPrompt(request: AIRequest): string {
+    const base = "Eres el núcleo conversacional de Arkmind. Tu objetivo es ayudar al usuario a navegar y modificar su contexto actual. Respondé siempre en español, de forma concisa. Si detectas información clave, decisiones importantes o restricciones nuevas, puedes proponer un insight usando el formato JSON: {\"kind\": \"insight_proposal\", \"content\": \"...\", \"importance\": 3}.";
+    
+    let contextPart = "";
+    if (request.kind === "chat" && request.context) {
+      contextPart = `\n\nContexto del Recurso Activo:\n${request.context}`;
+    }
+    
+    let memoryPart = "";
+    if (request.kind === "chat" && request.memoryBlock) {
+      memoryPart = `\n\nMemoria del Runtime:\n${request.memoryBlock}`;
+    }
+
+    return `${base}${contextPart}${memoryPart}`;
+  }
+
+  async propose(request: AIRequest): Promise<AIProposal> {
+    if (!this.isAvailable()) {
+      return {
+        kind: "noop",
+        summary: "MistralAIProvider.propose() llamado sin apiKey configurada",
+      };
+    }
+
+    // Merge resolution: bloque de Manus integrado.
+    // Si es chat, intentamos la llamada real a Mistral con el system prompt
+    // enriquecido. Si devuelve un `insight_proposal` en JSON, lo retornamos
+    // tipado. Si falla cualquier cosa, caemos al stub enriquecido.
+    if (request.kind === "chat") {
+      try {
+        const systemPrompt = this.buildSystemPrompt(request);
+        const messages = [
+          { role: "system", content: systemPrompt },
+          ...(request.history || []),
+          { role: "user", content: request.message }
+        ];
+
+        const response = await fetch("https://api.mistral.ai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${this.config.apiKey}`
+          },
+          body: JSON.stringify({
+            model: this.config.model,
+            messages,
+            temperature: this.config.temperature ?? 0.7,
+            max_tokens: this.config.maxTokens ?? 2048
+          })
+        });
+
+        if (!response.ok) throw new Error(`Mistral error: ${response.statusText}`);
+        const data = await response.json() as any;
+        const content = data.choices?.[0]?.message?.content || "";
+
+        // Intentar parsear si la IA envió una propuesta estructurada en JSON
+        try {
+          if (content.includes('{"kind":')) {
+            const jsonStart = content.indexOf('{');
+            const jsonEnd = content.lastIndexOf('}') + 1;
+            const potentialJson = content.slice(jsonStart, jsonEnd);
+            const parsed = JSON.parse(potentialJson);
+            if (parsed.kind === "insight_proposal") {
+              return parsed as AIProposal;
+            }
+          }
+        } catch (e) {
+          // Si falla el parseo, devolver como texto normal
+        }
+
+        return { kind: "explanation", text: content };
+      } catch (error) {
+        console.warn(`[MistralAIProvider] chat failed, falling back to stub:`, error);
+        // Falla al stub enriquecido de abajo
+      }
+    }
+
+    // Log de contexto para depuración (HEAD — respeta ia-context-bridge)
+    if (request.activeContext) {
+      console.log(`[MistralAIProvider] Contexto enriquecido recibido:`, {
+        path: request.activeContext.activeContextPath,
+        resource: request.activeContext.activeResource,
+        hasCognitive: !!request.activeContext.cognitiveContext,
+        hasSession: !!request.activeContext.activeSession
+      });
+    }
+
+    // Stub estructurado enriquecido con contexto (HEAD — contrato oficial)
+    const ctxLabel = request.activeContext?.activeResource
+      ? ` (sobre ${request.activeContext.activeResource})`
+      : "";
+
+    switch (request.kind) {
+      case "structural_change":
+        return {
+          kind: "suggestion",
+          title: "Cambio estructural propuesto" + ctxLabel,
+          rationale:
+            `Stub: revisaría el cambio sobre contexto (${truncate(request.context, 60)})` +
+            (request.diff ? ` y diff de ${request.diff.length} chars` : "") +
+            `. Implementación real pendiente con contexto enriquecido.`,
+          patch: undefined,
+        };
+      case "explain":
+        return {
+          kind: "explanation",
+          text:
+            `Stub: explicaría \`${truncate(request.target, 40)}\`${ctxLabel} respondiendo a ` +
+            `"${truncate(request.question, 60)}". Implementación real pendiente.`,
+        };
+      case "summarize":
+        return {
+          kind: "summary",
+          text:
+            `Stub: resumiría ${request.content.length} caracteres${ctxLabel}. ` +
+            `Implementación real pendiente.`,
+        };
+      case "chat":
+        // Para chat, devolver el stub enriquecido (caso fallback)
+        return {
+          kind: "explanation",
+          text: `Stub: respondería a "${truncate(request.message, 60)}"${ctxLabel}. ` +
+            `La llamada real a Mistral ya intentó arriba; esto es fallback.`,
+        };
+    }
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Catálogo de modelos (solo Mistral, solo si el provider activo es Mistral)
+// ────────────────────────────────────────────────────────────────────────────
+
+const MISTRAL_MODELS: Record<MistralModel, { name: string; description: string }> = {
+  "mistral-small-latest": {
+    name: "Mistral Small",
+    description: "Rápido y eficiente — plan gratuito",
+  },
+  "mistral-large-latest": {
+    name: "Mistral Large",
+    description: "Más potente — requiere plan de pago",
+  },
+  "open-mistral-7b": {
+    name: "Mistral 7B",
+    description: "Modelo abierto, muy rápido — plan gratuito",
+  },
+  "open-mixtral-8x7b": {
+    name: "Mixtral 8x7B",
+    description: "Mezcla de expertos, gran calidad — plan gratuito",
+  },
+};
+
+function truncate(s: string, max: number): string {
+  return s.length <= max ? s : s.slice(0, max - 1) + "…";
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// AIManager
+// ────────────────────────────────────────────────────────────────────────────
+
+export class AIManager {
+  private aiConfig: AIConfig | null = null;
+  private supabaseConfig: SupabaseConfig | null = null;
+  private provider: AIProvider = new NoopAIProvider();
+  private conversationHistory: AIMessage[] = [];
+
+  // ─── Provider API (nuevo, ADR 0003) ────────────────────────────────────
+
+  /**
+   * Inyecta un provider de IA arbitrario. Reemplaza al provider activo
+   * (incluyendo el NoopAIProvider por default).
+   */
+  setProvider(provider: AIProvider): void {
+    this.provider = provider;
+  }
+
+  /**
+   * Devuelve el provider activo. Útil para inspección y para tests.
+   */
+  getProvider(): AIProvider {
+    return this.provider;
+  }
+
+  // ─── Backwards-compat API ──────────────────────────────────────────────
+
+  /**
+   * Atajo para instalar un MistralAIProvider. Si `config.provider === "mistral"`,
+   * construye el provider y lo inyecta. Para otros providers, usar `setProvider`.
+   *
+   * Comportamiento legacy preservado: si no había config previa, se guarda;
+   * si la había, se actualiza `model` cuando coincide.
+   */
+  setAIConfig(config: AIConfig): void {
+    this.aiConfig = config;
+    if (config.provider === "mistral") {
+      this.provider = new MistralAIProvider(config);
+    }
+    // Otros providers: se ignoran silenciosamente (mismo comportamiento que
+    // antes, cuando el `provider` solo se leía para mostrar la config).
+  }
+
+  setSupabaseConfig(config: SupabaseConfig): void {
+    this.supabaseConfig = config;
+  }
+
+  getAIConfig(): AIConfig | null {
+    return this.aiConfig;
+  }
+
+  getSupabaseConfig(): SupabaseConfig | null {
+    return this.supabaseConfig;
+  }
+
+  /**
+   * Lista los modelos Mistral disponibles. Si el provider activo es
+   * MistralAIProvider, devuelve el catálogo completo. Si no, devuelve `[]`
+   * (no hay catálogo que mostrar para un provider genérico).
+   */
+  getAvailableModels(): Array<{ id: MistralModel; name: string; description: string }> {
+    if (this.provider instanceof MistralAIProvider) {
+      return Object.entries(MISTRAL_MODELS).map(([id, info]) => ({
+        id: id as MistralModel,
+        ...info,
+      }));
+    }
+    return [];
+  }
+
+  /**
+   * Cambia el modelo activo. Solo aplica si el provider es MistralAIProvider.
+   * Si no hay provider Mistral, comportamiento legacy: crea un AIConfig
+   * vacío con el modelo pedido, para que `getAIConfig()` lo refleje.
+   */
+  setModel(model: MistralModel): boolean {
+    if (this.provider instanceof MistralAIProvider) {
+      this.provider.setModel(model);
+      if (this.aiConfig) {
+        this.aiConfig = { ...this.aiConfig, model };
+      }
+      return true;
+    }
+    // Legacy: crear aiConfig mínimo si no existe
+    this.aiConfig = { provider: "mistral", model, apiKey: "" };
+    return true;
+  }
+
+  getConversationHistory(): AIMessage[] {
+    return [...this.conversationHistory];
+  }
+
+  clearHistory(): void {
+    this.conversationHistory = [];
+  }
+
+  /**
+   * `true` si el provider activo está disponible para responder a `propose()`.
+   * Para NoopAIProvider: siempre `false`. Para MistralAIProvider: `true` solo
+   * si `apiKey` está configurada.
+   */
+  isConfigured(): boolean {
+    return this.provider.isAvailable();
+  }
+
+  /**
+   * Envía una petición a la IA enriqueciéndola automáticamente con el contexto
+   * activo del runtime (ADR 0007 — ia-context-bridge).
+   *
+   * Merge resolution: el enriquecimiento automático es la pieza clave del
+   * ia-context-bridge, así que se mantiene la versión del HEAD. El provider
+   * recibe siempre un `activeContext` poblado (o null si el caller ya pasó
+   * uno explícito).
+   */
+  async propose(request: AIRequest): Promise<AIProposal> {
+    const enrichedRequest = {
+      ...request,
+      activeContext: request.activeContext || contextEnricher.captureActiveContext(),
+    };
+    return this.provider.propose(enrichedRequest);
+  }
+}
+
+export const aiManager = new AIManager();

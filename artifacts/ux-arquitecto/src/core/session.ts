@@ -183,62 +183,70 @@ export class SessionManager {
   }
 
   /**
-   * T-010 (Mavis@cloud, 2026-06-10): crear una nueva sesión a partir de una
-   * existente, copiando panelId / contextPath / cognitiveContext, y agregando
-   * un mensaje inicial. Usado por "Enviar a LLM" para delegar contenido
-   * desde otra conversación.
-   *
-   * El `visualContext` se pasa explícito (no se deriva del source) porque
-   * es la representación completa, no solo el ID. El caller lo construye.
-   *
-   * @returns la nueva sesión, o null si sourceSessionId no existe.
+   * Fork sesión (crear copia) con opciones.
+   * - Opcionalmente permite cortar el historial hasta fromMessageIndex.
+   * - Realiza deep-clone de mensajes y propuestas para evitar referencias compartidas.
    */
-  createSessionWithInitialMessage(
-    sourceSessionId: string,
-    initialMessage: StructuredMessage,
-    visualContext: VisualContext
+  forkSession(
+    sessionId: string,
+    options?: { fromMessageIndex?: number; title?: string }
   ): AIContextSession | null {
-    const source = this.getSession(sourceSessionId);
-    if (!source) return null;
-
-    const newSession = this.createSession(
-      source.panelId,
-      source.contextPath,
-      source.cognitiveContext,
-      visualContext
-    );
-
-    this.addMessage(newSession.id, initialMessage);
-    return newSession;
-  }
-
-  /**
-   * Fork sesión (crear copia)
-   */
-  forkSession(sessionId: string): AIContextSession | null {
     const original = this.getSession(sessionId);
     if (!original) return null;
 
     const forkedId = this.generateSessionId();
 
+    const fromIndex = typeof options?.fromMessageIndex === "number"
+      ? Math.max(0, Math.min(options!.fromMessageIndex!, original.messages.length - 1))
+      : original.messages.length - 1;
+
+    const messagesToCopy = original.messages.slice(0, fromIndex + 1);
+    const proposalsToKeep = original.proposals.slice();
+
+    // Deep clone para evitar referencias compartidas
+    let clonedMessages: StructuredMessage[];
+    let clonedProposals: OperationProposal[];
+
+    try {
+      clonedMessages = JSON.parse(JSON.stringify(messagesToCopy));
+      clonedProposals = JSON.parse(JSON.stringify(proposalsToKeep));
+    } catch (e) {
+      console.error("Deep clone fallback used", e);
+      clonedMessages = structuredClone(messagesToCopy);
+      clonedProposals = structuredClone(proposalsToKeep);
+    }
+
     const forked: AIContextSession = {
       ...original,
       id: forkedId,
-      state: "forked",
-      messages: [...original.messages],
-      proposals: [...original.proposals],
       createdAt: Date.now(),
       lastActive: Date.now(),
+      messages: clonedMessages,
+      proposals: clonedProposals,
       metadata: {
         ...original.metadata,
         forkOf: sessionId,
-        version: original.metadata.version + 1,
+        forkedAt: Date.now(),
+        forkedFromMessageIndex: options?.fromMessageIndex,
       },
+      title: options?.title || `${original.title || "Conversation"} (fork)`,
     };
 
     this.sessions.set(forkedId, forked);
     this.persist(forked);
+
     return forked;
+  }
+
+  /**
+   * Listar todas las sesiones
+   */
+  listSessions(includeArchived = false): AIContextSession[] {
+    const sessions = Array.from(this.sessions.values());
+    if (!includeArchived) {
+      return sessions.filter((s) => s.state !== "archived");
+    }
+    return sessions.sort((a, b) => (b.lastActive || 0) - (a.lastActive || 0));
   }
 
   /**
@@ -247,63 +255,14 @@ export class SessionManager {
   getSummary(sessionId: string): string {
     const session = this.getSession(sessionId);
     if (!session) return "";
-
-    const messageCount = session.messages.length;
-    const proposalCount = session.proposals.length;
-    const approvedCount = session.proposals.filter((p) => p.status === "approved").length;
-
-    return `Session ${sessionId}: ${messageCount} messages, ${approvedCount}/${proposalCount} proposals approved`;
+    return session.cognitiveContext?.focusSummary || "";
   }
 
   /**
-   * Destruir sesión
+   * Generar ID único
    */
-  destroySession(sessionId: string): boolean {
-    const deleted = this.sessions.delete(sessionId);
-    if (deleted) {
-      snapshotStore.getRuntimeStore("sessions", "readwrite").then(({ tx, store }) => {
-        store.delete(sessionId);
-      });
-    }
-    return deleted;
-  }
-
-  /**
-   * Obtener todas las sesiones
-   */
-  getAllSessions(): AIContextSession[] {
-    const sessions: AIContextSession[] = [];
-    this.sessions.forEach((session) => {
-      sessions.push(session);
-    });
-    return sessions;
-  }
-
-  /**
-   * Limpiar sesiones archivadas
-   */
-  cleanArchivedSessions(): number {
-    let deleted = 0;
-    const idsToDelete: string[] = [];
-
-    this.sessions.forEach((session, id) => {
-      if (session.state === "archived") {
-        idsToDelete.push(id);
-      }
-    });
-
-    idsToDelete.forEach((id) => {
-      this.sessions.delete(id);
-      deleted++;
-    });
-
-    return deleted;
-  }
-
-  // ============ HELPERS ============
-
   private generateSessionId(): string {
-    return `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 }
 

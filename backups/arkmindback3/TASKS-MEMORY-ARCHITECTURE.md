@@ -1,0 +1,105 @@
+{
+  "project": "Arkmind",
+  "schemaVersion": 2,
+  "lastUpdated": "2026-06-02T11:30:00Z",
+  "currentFocus": "runtime-persistence done (Manus@delta) · ADR 0005 accepted · All core persistence implemented",
+  "modules": {
+    "snapshot-store": {
+      "status": "done",
+      "claimedBy": "Mavis",
+      "completedAt": "2026-06-01T13:55:00Z",
+      "commit": "5694c3b",
+      "adr": "0001"
+    },
+    "rollback-engine": {
+      "status": "done",
+      "claimedBy": "Mavis@cloud",
+      "claimedAt": "2026-06-02T11:52:00Z",
+      "completedAt": "2026-06-02T12:05:00Z",
+      "branch": "ia/mavis-cloud/rollback-engine",
+      "dependsOn": ["snapshot-store"],
+      "adr": "0002 (accepted)"
+    },
+    "op-journal": {
+      "status": "done",
+      "claimedBy": "Manus@delta",
+      "completedAt": "2026-06-02T13:15:00Z",
+      "branch": "ia/manus/op-journal",
+      "dependsOn": ["rollback-engine"],
+      "adr": "0006 (accepted)"
+    },
+    "spec-discrepancies": {
+      "status": "done",
+      "claimedBy": "Aria",
+      "claimedAt": "2026-06-02T10:50:00Z",
+      "completedAt": "2026-06-02T11:30:00Z",
+      "branch": "ia/aria/spec-discrepancies",
+      "dependsOn": [],
+      "adr": "0003 accepted, 0004 accepted (0005 fuera de alcance, queda como handoff)"
+    },
+    "runtime-persistence": {
+      "status": "done",
+      "claimedBy": "Manus@delta",
+      "completedAt": "2026-06-02T14:15:00Z",
+      "branch": "ia/manus/runtime-persistence",
+      "dependsOn": ["op-journal"],
+      "adr": "0005 (accepted)"
+    }
+  },
+  "openQuestions": [
+    {
+      "id": "Q1",
+      "question": "¿Necesitamos versionado de snapshots?",
+      "raisedBy": "Mavis",
+      "raisedAt": "2026-06-01",
+      "context": "Si el schema del Snapshot o el formato de los archivos cambia entre versiones, los snapshots viejos quedarían ilegibles.",
+      "status": "open"
+    },
+    {
+      "id": "Q2",
+      "question": "¿El AIProvider debe ser opcional o requerido en el runtime?",
+      "raisedBy": "Mavis",
+      "raisedAt": "2026-06-01",
+      "resolvedAt": "2026-06-02",
+      "resolvedBy": "Aria",
+      "resolvedByADR": "0003",
+      "resolution": "AIProvider es opcional. El runtime arranca con NoopAIProvider. MistralAIProvider solo si hay apiKey configurada.",
+      "status": "resolved"
+    },
+    {
+      "id": "Q3",
+      "question": "¿Cómo resolver sincronización entre dispositivos en el futuro?",
+      "raisedBy": "Mavis",
+      "raisedAt": "2026-06-01",
+      "context": "Si el estado vive en IndexedDB local, dos dispositivos del mismo usuario divergen. CRDTs, last-write-wins, sync por eventos del journal…",
+      "status": "open"
+    }
+  ],
+  "recentActivity": [
+    {
+      "date": "2026-06-02T10:35:00Z",
+      "by": "Mavis",
+      "action": "Reorganización: introducido modelo de módulos + AXIOMS.md + ADRs 0001-0002"
+    },
+    {
+      "date": "2026-06-02T12:05:00Z",
+      "by": "Mavis@cloud",
+      "action": "rollback-engine done: rollback() con RollbackResult, verifyRestoration(), ADR 0002 accepted, transactions.ts caller actualizado, types.ts extendido con 'rollback_failed'"
+    },
+    {
+      "date": "2026-06-02T10:50:00Z",
+      "by": "Aria",
+      "action": "claim spec-discrepancies: refiné SPEC/CONTRACT a v0.2, decisión de alcance: ADR 0003+0004 sí, ADR 0005 fuera (sesión propia)"
+    },
+    {
+      "date": "2026-06-02T11:30:00Z",
+      "by": "Aria",
+      "action": "spec-discrepancies done: AIProvider interface + NoopAIProvider (default) + MistralAIProvider en ai.ts, AuthConfig con remoteUrl/remoteKey + aliases deprecated en auth.ts, ADRs 0003 y 0004 accepted, Q2 resuelta"
+    },
+    {
+      "date": "2026-06-01T14:00:00Z",
+      "by": "Mavis",
+      "action": "Snapshot persistence implementada y commitada (push pendiente)"
+    }
+  ]
+}

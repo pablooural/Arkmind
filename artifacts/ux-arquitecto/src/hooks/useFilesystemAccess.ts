@@ -58,21 +58,22 @@ async function dbSet(key: string, value: string): Promise<void> {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
-  } catch {
-    // silencioso — no bloqueamos la app por un fallo de persistencia
+  } catch (error) {
+    console.warn(`[useFilesystemAccess] Failed to persist ${key}:`, error);
   }
 }
 
 async function dbDelete(key: string): Promise<void> {
   try {
     const db = await openDB();
-    await new Promise<void>((resolve) => {
+    await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(STORE, "readwrite");
       tx.objectStore(STORE).delete(key);
       tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
     });
-  } catch {
-    // silencioso
+  } catch (error) {
+    console.warn(`[useFilesystemAccess] Failed to delete ${key}:`, error);
   }
 }
 
