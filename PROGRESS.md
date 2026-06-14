@@ -411,3 +411,41 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 **Status:** retomando tras PR #15 cerrado (conflicto de superposición con main, ahora documentado en L-005)
 **Voy a trabajar en:** T-012 — Panel de archivos visible desde el chat (archivos + contexto + snapshots + ADRs)
 **Decisión de Pablo:** opción (c) — hacer T-012 de cero, ignorando la rama congelada de Atlas (`ia/atlas/t-012-resource-explorer`). Razón: "sino hay que esperar hasta el mes que viene"
+
+  ---
+
+  ## T-028 — Track B: ColorWheel HSV interactiva — 2026-06-14 — Replit Agent
+
+  **STATUS:** ✅ done
+
+  **TOUCHED:**
+  - `artifacts/ux-arquitecto/src/components/ColorWheel.tsx` — implementación completa: rueda HSV en canvas, slider de brillo, dot selector, input hex editable, sync bidireccional con prop `color`
+
+  **VERIFIED:**
+  - `colorConversion.ts` ya tenía `hexToHsv` y `hsvToHex` exportados — no fue necesario crearlas.
+  - Scope respetado: SOLO `ColorWheel.tsx`. NO se tocó `colorConversion.ts`, `ConfigMenu.tsx`, ni `types/theme.ts`.
+  - API pública `{ color: string; onChange: (color: string) => void }` preservada.
+  - Verificación de tipos: no se puede correr tsc end-to-end desde sandbox, pero las importaciones son verificadas manualmente.
+
+  **NOT VERIFIED:**
+  - Typecheck end-to-end con `pnpm --filter @workspace/ux-arquitecto run typecheck`
+  - Runtime real en browser (no disponible desde sandbox)
+  - Mobile touch en Safari/Firefox
+
+  **DECISIONS:**
+  - **Pixel-by-pixel con `createImageData`**: más preciso que gradientes cónicos CSS, renderiza correctamente la oscurecimiento con value.
+  - **Listeners globales en `window`**: permite drag fuera del canvas sin perder el evento (patrón estándar para drag UX).
+  - **Dot siempre visible**: posición derivada de HSV → coords polares, sin estado extra.
+  - **`webFilesystemProvider` directo**: N/A en este componente.
+  - **Input hex editable**: commit en blur o Enter, validación de formato `/^#[0-9a-fA-F]{6}$/`.
+
+  **OPEN QUESTIONS:**
+  - ¿Se quiere auto-refresh del canvas cuando la prop `color` cambia externamente (no por drag)? Ya implementado via useEffect sobre `color`.
+
+  **HANDOFF:**
+  - Rama: `ia/replit-agent/t-028-colorwheel` — lista para PR y merge.
+  - ConfigMenu ya pasa `color` y `onChange` al componente — no se necesita modificar la integración.
+
+  **PROBLEMS / BLOCKERS:**
+  - Ninguno.
+  
