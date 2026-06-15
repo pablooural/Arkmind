@@ -598,3 +598,19 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 **HANDOFF:** T-035 completa. SnapshotPanel con diff visual funcional.
 
 **PROBLEMS / BLOCKERS:** Ninguno.
+
+---
+
+## T-036 — HistoryPanel: historial de operaciones en tiempo real — 2026-06-15 — Replit Agent
+
+**STATUS:** done
+
+**TOUCHED:**
+- artifacts/ux-arquitecto/src/components/HistoryPanel.tsx (nuevo) — panel de historial de operaciones: lee opJournal (IndexedDB), lista entradas con tipo/accion/status/tiempo, filtro por tipo, expand para ver detalles, boton "Restaurar snapshot" cuando hay snapshotId.
+- artifacts/ux-arquitecto/src/pages/DualPanelLayout.tsx — boton 📋 en top bar, estado showHistory, overlay HistoryPanel. Mutuamente excluyente con SnapshotPanel.
+
+**DECISIONS:** Panel aparece por la izquierda (SnapshotPanel por la derecha) para no solaparse. Los dos paneles se cierran mutuamente al abrir el otro. Auto-refresh cada 15s.
+
+**HANDOFF:** T-036 completa.
+
+**PROBLEMS / BLOCKERS:** Ninguno.
