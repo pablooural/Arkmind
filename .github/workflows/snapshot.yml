@@ -1,4 +1,4 @@
-name: Snapshot Generator
+name: Generador de instantáneas
 
 on:
   workflow_dispatch:
@@ -21,3 +21,10 @@ jobs:
           echo "Repo: ${{ github.repository }}"
           echo "Fecha: $(date -u)"
           echo "✅ El mecanismo funciona"
+
+      - name: Leer estado del proyecto
+        run: |
+          echo "=== STATE.json ==="
+          cat .arkmind/STATE.json
+          echo "=== PROGRESS (últimas 50 líneas) ==="
+          tail -50 PROGRESS.md
