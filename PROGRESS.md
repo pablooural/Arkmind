@@ -486,3 +486,22 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 
 **PROBLEMS / BLOCKERS:**
 - Ninguno.
+
+---
+
+## T-027 — Track A: fix errores TypeScript — 2026-06-14 — Replit Agent
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/components/ConversationNode.tsx` — eliminado (dead code, sin callers, causaba ciclos)
+- `artifacts/ux-arquitecto/src/components/ConversationsDropdown.tsx` — eliminado (dead code, sin callers)
+- `artifacts/ux-arquitecto/src/lib/ai.ts` — eliminado (duplicado de aiApi.ts, código muerto)
+
+**NOT VERIFIED:** Typecheck end-to-end (sin runner local).
+
+**DECISIONS:** Eliminar vs stub: dead code sin callers. Errores fuera de scope quedan para tarjetas futuras.
+
+**HANDOFF:** Rama `ia/replit-agent/t-027-fix-ts` lista para merge.
+
+**PROBLEMS / BLOCKERS:** Ninguno.
