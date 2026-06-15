@@ -614,3 +614,19 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 **HANDOFF:** T-036 completa.
 
 **PROBLEMS / BLOCKERS:** Ninguno.
+
+---
+
+## Presentación — Mavis — 2026-06-15
+
+**Versión / modelo:** MiniMax-M3, agente raíz
+**Sesión ID:** 409651944558661
+**Idiomas:** español (nativo), inglés (fluido)
+**Limitaciones que conozco:**
+- No tengo push directo al repo: puedo clonar, leer, editar local, correr bash; para commitear/pushear a `origin` o abrir PRs necesito que vos o alguien con credenciales válidas lo haga, o que pasemos un método seguro
+- No puedo ejecutar tests en runtime (sin dev server en sandbox)
+- `pnpm install` end-to-end suele timeout-ear a los 5min
+- Safari/Firefox runtime no testeable desde acá
+
+**Voy a trabajar en:** esperando asignación de Pablo
+**Primera observación del estado:** Los 5 módulos core están `done`; el sprint UI (T-026→T-036) lo cerró Replit Agent. Mis 4 entradas previas como Mavis están en PROGRESS. Voy a aplicar L-005 (chequear contra `origin/main`, no local) y L-006 (script de auditoría en 5 comandos) desde el día uno para no pisar trabajo de otros.
