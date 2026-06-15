@@ -17,6 +17,7 @@ import { ConfigMenu } from "@/components/ConfigMenu";
 import { ConversationPanel } from "@/components/ConversationPanel";
 import { ResourceExplorer } from "@/components/ResourceExplorer";
 import { EditorPanel } from "@/components/EditorPanel";
+import { SnapshotPanel } from "@/components/SnapshotPanel";
 import { SplitView } from "@/components/SplitView";
 import { SlideModeView } from "@/components/SlideModeView";
 import { ResourceNode } from "@/core/types";
@@ -33,6 +34,7 @@ export default function DualPanelLayout({ sessionId }: DualPanelLayoutProps) {
   const [swapped, setSwapped]       = useState(false);
   const [flipping, setFlipping]     = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
+  const [showSnapshots, setShowSnapshots] = useState(false);
   const [theme, setTheme]           = useState<Theme>(getDefaultTheme());
   const [selectedResource, setSelectedResource] = useState<ResourceNode | null>(null);
 
@@ -152,6 +154,14 @@ export default function DualPanelLayout({ sessionId }: DualPanelLayoutProps) {
         </div>
 
         <div style={{ display: "flex", gap: "0.35rem" }}>
+          {/* Botón Snapshots */}
+          <button
+            style={{...btn(showSnapshots), fontSize: "14px"}}
+            onClick={() => setShowSnapshots((s) => !s)}
+            title="Historial de snapshots"
+          >
+            ⏱
+          </button>
           {/* Botón para volver al chat si hay editor abierto */}
           {showEditor && (
             <button
@@ -223,6 +233,15 @@ export default function DualPanelLayout({ sessionId }: DualPanelLayoutProps) {
           />
         )}
       </div>
+
+      {/* SNAPSHOT PANEL OVERLAY */}
+      {showSnapshots && (
+        <SnapshotPanel
+          theme={theme}
+          contextPath={selectedResource?.path ?? "/"}
+          onClose={() => setShowSnapshots(false)}
+        />
+      )}
 
       {/* STATUS BAR */}
       <div style={{

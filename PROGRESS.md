@@ -449,3 +449,40 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
   **PROBLEMS / BLOCKERS:**
   - Ninguno.
   
+---
+
+## T-031 — Track E: SnapshotPanel UI + DualPanelLayout — 2026-06-14 — Replit Agent
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/components/SnapshotPanel.tsx` *(nuevo)* — panel overlay con lista de snapshots por contextPath, botón "Restaurar" por ítem, auto-refresh cada 10s, feedback visual (loading/success/error), cierre con Escape
+- `artifacts/ux-arquitecto/src/pages/DualPanelLayout.tsx` — importa SnapshotPanel, agrega estado `showSnapshots`, botón ⏱ en topbar, overlay condicional pasando `contextPath={selectedResource?.path ?? "/"}`
+
+**VERIFIED:**
+- Scope respetado: SOLO los 2 archivos listados. No se tocó `snapshots.ts`, `types.ts`, ni otros componentes UI.
+- snapshotManager.listSnapshots(contextPath) es síncrono — no necesita async/await.
+- snapshotManager.rollback(snapshotId) es async — manejado con try/catch + estado de feedback.
+- Snapshot.metadata.resourceCount y totalSize son los campos correctos según types.ts.
+- Botón ⏱ usa el mismo helper `btn(active)` que los otros botones del topbar.
+
+**NOT VERIFIED:**
+- Typecheck end-to-end con `pnpm --filter @workspace/ux-arquitecto run typecheck`.
+- Runtime browser real.
+
+**DECISIONS:**
+- **Overlay desde el lado derecho** (`position: absolute, right: 0, width: min(380px, 100vw)`): no interrumpe el layout, se superpone sobre el contenido activo. Coherente con el patrón de ConfigMenu.
+- **Polling cada 10s** (no event-driven): más simple, sin introducir hooks nuevos. Futuro mejora: escuchar cambios en snapshotStore directamente.
+- **contextPath = selectedResource?.path ?? "/"**: si no hay recurso activo, muestra snapshots de la raíz. El task card dice derivar desde el recurso activo.
+- **RollbackResult.success**: asumido boolean según el patrón de la tarjeta T-029. Si cambia la firma de rollback, este componente necesita actualizar el `if (result.success)`.
+- **Cierre con Escape**: UX estándar para overlays/modales.
+- **⏱ como ícono del botón**: visible, intuitivo, sin añadir dependencias de iconos.
+
+**HANDOFF:**
+- Rama: `ia/replit-agent/t-031-snapshot-panel` — lista para PR y merge.
+- Ronda 3 puede arrancar (**T-032**, **T-033**) una vez que Ronda 1 (T-027, T-028, T-029, T-030) esté mergeada y Ronda 2 (T-031) también mergeada.
+- T-032 (propuestas IA aceptar/rechazar): depende de T-029 mergeado.
+- T-033 (SSE streaming): depende de T-030 mergeado.
+
+**PROBLEMS / BLOCKERS:**
+- Ninguno.
