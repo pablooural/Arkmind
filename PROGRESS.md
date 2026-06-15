@@ -630,3 +630,40 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 
 **Voy a trabajar en:** esperando asignación de Pablo
 **Primera observación del estado:** Los 5 módulos core están `done`; el sprint UI (T-026→T-036) lo cerró Replit Agent. Mis 4 entradas previas como Mavis están en PROGRESS. Voy a aplicar L-005 (chequear contra `origin/main`, no local) y L-006 (script de auditoría en 5 comandos) desde el día uno para no pisar trabajo de otros.
+
+---
+
+## T-015 — Audit memoria/estado/contexto — 2026-06-15 — Mavis
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `.arkmind/REVIEWS/memory-state-context-audit-2026-06.md` *(nuevo)* — audit de 1 página con mapa actual (15 capas), 6 solapamientos, 10 huecos, priorización P0/P1/P2, y recomendación de próxima tarjeta
+- `PROGRESS.md` — esta entrada
+
+**VERIFIED:**
+- Audit creado, cubre las 5 secciones del template de T-015
+- Lectura cruzada de memory.ts, ia-context-bridge.ts, session.ts, ai.ts, types.ts, ADR 0007
+- Hallazgo P0 #1 (híbrido localStorage/IDB en memory.ts) verificado con grep: 7+ métodos referencian constantes `MEM_PREFIX`/`SNAP_PREFIX`/`STORAGE_PREFIX` que **no están definidas en ningún archivo** del codebase
+- 7 solapamientos y 10 huecos mapeados a tarjetas existentes o nuevas
+
+**NOT VERIFIED:**
+- No leí `core/cognitive.ts`, `core/visual.ts`, `core/workspace.ts`, `core/transactions.ts`, `core/snapshots.ts`, `core/snapshotStore.ts` a fondo — quedan para "2da vuelta" del audit
+- No corrí dev server; observaciones son estáticas (lectura de código + grep)
+
+**DECISIONS:**
+- **Pick de T-015 como primera tarea**: docs-only, zero risk de pisar código, Pablo lo designó como entry point del memory-architecture review
+- **Recomendación de próxima tarjeta**: `t-023-fix-memory-localstorage-vs-idb` (P0 #1 del audit). Concreta, scoped, ~30 líneas en `core/memory.ts`, no necesita ADR
+- **No propongo consolidación de `CognitiveContext` vs `WorkingMemory` (solapamiento S1) en este audit** — necesita un ADR propio, no es decisión para 1 sesión de análisis
+
+**OPEN QUESTIONS:**
+- ¿Las constantes `MEM_PREFIX` / `SNAP_PREFIX` / `STORAGE_PREFIX` (referenciadas en memory.ts pero no definidas) están en algún archivo del runtime fuera del codebase actual, o son legacy de la migración a IDB?
+- ¿Existe alguna UI que llame a `restoreFromSnapshot` o `listCognitiveSnapshots`? Si no, el bug es invisible pero igual está. Si sí, es UX-breaking.
+- ¿Cuándo se actualizó `STATE.json.currentFocus` por última vez? El campo dice "All core persistence implemented" y el `lastUpdated` es 2026-06-02, pero hay 4+ PRs mergeados después.
+
+**HANDOFF:**
+- **Próxima tarjeta natural: `t-023-fix-memory-localstorage-vs-idb`** (P0 #1 del audit). Quien la tome debe leer el audit primero, después `core/memory.ts` completo, después `core/snapshotStore.ts` para entender el helper `idbGet`/`idbSet`. Scope: 1 archivo, ~30 líneas netas. No toca `core/types.ts` (NO-GO).
+- **Después de t-023**: la cadena T-016 (ejecutivo) → T-019 (estado vivo) → T-020 (tareas activas) → T-017 (detallado) → T-018 (ramificadas) → T-021 (recuperación) → T-022 (impacto), como sugiere el TASKS-MEMORY-ARCHITECTURE.md con t-023 clavado entre T-015 y T-016.
+- **T-021 puede arrancar en paralelo** con T-016/T-019/T-020 (su SPEC no depende de la implementación de los otros, solo de que existan los stores).
+
+**PROBLEMS / BLOCKERS:** (vacío)
