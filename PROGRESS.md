@@ -550,3 +550,20 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 **HANDOFF:** T-032 mergeada. T-033 (streaming) es independiente.
 
 **PROBLEMS / BLOCKERS:** Ninguno.
+
+---
+
+## T-033 — Track G: AI streaming SSE (Mistral token por token) — 2026-06-15 — Replit Agent
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/api-server/src/routes/ai.ts` — nuevo `POST /api/ai/stream`: SSE con Mistral stream:true, forwarding chunk por chunk.
+- `artifacts/ux-arquitecto/src/lib/aiApi.ts` — nueva función `streamMessageFromAI` con ReadableStream + SSE parsing.
+- `artifacts/ux-arquitecto/src/components/ChatPanel.tsx` — handleSend usa streaming; burbuja de texto en vivo mientras llegan tokens; fallback a sendAIMessage si stream falla.
+
+**DECISIONS:** Fallback a sendAIMessage si streamMessageFromAI lanza error. streamingText null = sin streaming activo, "" = iniciando, string = tokens acumulados.
+
+**HANDOFF:** T-033 completa. Todas las tarjetas T-026–T-033 implementadas.
+
+**PROBLEMS / BLOCKERS:** Ninguno.

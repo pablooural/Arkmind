@@ -68,3 +68,56 @@ export async function sendMessageToAI(
     throw error;
   }
 }
+
+export async function streamMessageFromAI(
+  message: string,
+  onToken: (token: string) => void,
+  model?: string,
+  history?: ConversationMessage[],
+  resourceContext?: ResourceContext | null,
+  memoryBlock?: string | null
+): Promise<string> {
+  const response = await fetch("/api/ai/stream", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message, model, history, resourceContext, memoryBlock }),
+  });
+
+  if (!response.ok || !response.body) {
+    const err = await response.json().catch(() => ({ error: "Stream error" })) as { error?: string };
+    throw new Error(err.error || "Error en stream de IA");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  let fullContent = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split("\n");
+    buf = lines.pop() ?? "";
+
+    for (const line of lines) {
+      if (!line.startsWith("data: ")) continue;
+      const data = line.slice(6).trim();
+      if (data === "[DONE]") return fullContent;
+      try {
+        const chunk = JSON.parse(data) as { token?: string; error?: string };
+        if (chunk.error) throw new Error(chunk.error);
+        if (chunk.token) {
+          fullContent += chunk.token;
+          onToken(chunk.token);
+        }
+      } catch (e) {
+        if (e instanceof SyntaxError) continue;
+        throw e;
+      }
+    }
+  }
+
+  return fullContent;
+}
