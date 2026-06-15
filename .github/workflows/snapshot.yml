@@ -11,20 +11,55 @@ on:
 jobs:
   generate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Hello
+      - name: Generar snapshot con Mistral
+        env:
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
         run: |
-          echo "Snapshot pedido por: ${{ github.event.inputs.requested_by }}"
-          echo "Repo: ${{ github.repository }}"
-          echo "Fecha: $(date -u)"
-          echo "✅ El mecanismo funciona"
+          mkdir -p .snapshots
 
-      - name: Leer estado del proyecto
+          STATE=$(cat .arkmind/STATE.json)
+          PROGRESS=$(tail -100 PROGRESS.md)
+          REGISTRY=$(cat .arkmind/modules/_REGISTRY.md)
+
+          PROMPT="Sos un asistente técnico. Generá un snapshot estructurado del proyecto Arkmind basándote en los archivos que te paso. El snapshot debe tener exactamente estas 6 secciones en markdown:\n\n1. Arquitectura\n2. Estado del sistema\n3. Decisiones\n4. Problemas / riesgos\n5. Cambios recientes\n6. Referencias al repositorio\n\nSé concreto y preciso. No inventes nada que no esté en los archivos.\n\n=== STATE.json ===\n$STATE\n\n=== PROGRESS (últimas 100 líneas) ===\n$PROGRESS\n\n=== REGISTRY ===\n$REGISTRY"
+
+          RESPONSE=$(curl -s https://api.mistral.ai/v1/chat/completions \
+            -H "Authorization: Bearer $MISTRAL_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"model\": \"mistral-small-latest\",
+              \"messages\": [{
+                \"role\": \"user\",
+                \"content\": $(echo "$PROMPT" | jq -Rs .)
+              }]
+            }")
+
+          SNAPSHOT=$(echo "$RESPONSE" | jq -r '.choices[0].message.content')
+          FILENAME=".snapshots/snapshot-$(date -u +%Y%m%d-%H%M%S).md"
+
+          {
+            echo "# Snapshot — $(date -u)"
+            echo "**Pedido por:** ${{ github.event.inputs.requested_by }}"
+            echo ""
+            echo "$SNAPSHOT"
+          } > "$FILENAME"
+
+          echo "✅ Snapshot guardado en $FILENAME"
+
+      - name: Commit snapshot
         run: |
-          echo "=== STATE.json ==="
-          cat .arkmind/STATE.json
-          echo "=== PROGRESS (últimas 50 líneas) ==="
-          tail -50 PROGRESS.md
+          git config user.name "snapshot-bot"
+          git config user.email "snapshot@arkmind.local"
+          git add .snapshots/
+          if git diff --cached --quiet; then
+            echo "Sin cambios"
+          else
+            git commit -m "snapshot: pedido por ${{ github.event.inputs.requested_by }} [skip ci]"
+            git push
+          fi
