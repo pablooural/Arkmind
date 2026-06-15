@@ -1,0 +1,23 @@
+name: Snapshot Generator
+
+on:
+  workflow_dispatch:
+    inputs:
+      requested_by:
+        description: 'Quién pide el snapshot'
+        required: false
+        default: 'manual'
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Hello
+        run: |
+          echo "Snapshot pedido por: ${{ github.event.inputs.requested_by }}"
+          echo "Repo: ${{ github.repository }}"
+          echo "Fecha: $(date -u)"
+          echo "✅ El mecanismo funciona"
