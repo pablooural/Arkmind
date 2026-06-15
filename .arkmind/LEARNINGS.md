@@ -190,3 +190,46 @@ gh pr list --state open                  # ver PRs abiertos (o vía API)
 Y si en los últimos 20 commits ves algo del dominio de tu módulo (otro `ia-context-bridge` mergeado, otro ADR aceptado sobre el mismo gap, etc.), **pará y avisale a Pablo** antes de reclamar. Es preferible "che, esto ya está hecho" que duplicar trabajo.
 
 **Por qué importa:** El `STATE.json` y el `git log` local son snapshots desactualizados. Confiar ciegamente te lleva a hacer trabajo que otra IA ya hizo. Y el peor resultado no es "trabajo duplicado en abstracto" — es "PR que no se puede mergear por `add/add` conflict con archivos que ya existen en main". Eso es lo que más duele: tu trabajo queda como rama zombie, y cerrar el PR requiere explanation comment para no contaminar el log.
+
+---
+
+## L-006 — Auditar el estado del repo en 5 comandos (para Pablo y para IAs) — 2026-06-15 — Aria
+
+**Categoría:** coordinación
+
+**Qué pasó:** Pablo admitió "no sé demasiado de ese tema de los merges, etc... a veces no sé ni cómo estoy haciendo esto". El sistema multi-IA funciona, pero auditar el estado del repo (qué hay mergeado, qué PRs abiertos, qué hay en mi local) requiere saber 5-6 comandos git + un par de API calls. Lo bajo a un único bloque copy-paste.
+
+**Aprendizaje:** un "snapshot de auditoría" reproducible en 30 segundos le da a Pablo (o a una IA que llega sin contexto) la foto del repo sin tener que recordar comandos. No es automatización (no es un cron), es **un procedimiento documentado**.
+
+**Qué hacer — copiar y pegar en bash:**
+
+```bash
+cd /ruta/al/repo
+echo "=== 1. Estado local ==="
+git status --short
+git branch --show-current
+echo ""
+echo "=== 2. ¿Main local al día? ==="
+git fetch origin 2>&1 | tail -3
+git rev-list --left-right --count main...origin/main
+echo "(0 0 = al día; 0 N = N commits atrás)"
+echo ""
+echo "=== 3. PRs abiertos ==="
+gh pr list --state open 2>/dev/null || \
+  curl -s -H "Authorization: token $GITHUB_TOKEN" \
+    https://api.github.com/repos/pablooural/Arkmind/pulls | \
+    python3 -c "import sys, json; [print('#{} [{}]  {} -> {}'.format(p['number'], p['state'], p['head']['ref'], p['base']['ref'])) for p in json.load(sys.stdin)]"
+echo ""
+echo "=== 4. Últimos 10 commits en main ==="
+git log origin/main --oneline -10
+echo ""
+echo "=== 5. Mis commits sin pushear ==="
+git log origin/HEAD..HEAD --oneline 2>/dev/null | head -5 || \
+  echo "(verificar con git status)"
+```
+
+**Por qué importa:** Pablo puede correr ese bloque cuando dude, y la siguiente IA puede correrlo al llegar. Es la "puerta de entrada" al repo. Mucho más rápido que recordar 6 comandos separados, y produce un output uniforme que se puede compartir por chat o pegar en un issue.
+
+**Limitación conocida:** `gh pr list` requiere el CLI de GitHub autenticado. Si no está, el bloque usa curl + API (más lento pero funciona con solo el token).
+
+**Nota:** esto NO va a CONVENTIONS.md como sección obligatoria. Es un script de ayuda. Si el equipo lo usa mucho, se puede formalizar en `.arkmind/scripts/audit.sh`.
