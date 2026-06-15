@@ -15,11 +15,12 @@ import { useSession } from "@/hooks/useSession";
 import { useAI } from "@/hooks/useAI";
 import { useMemory } from "@/hooks/useMemory";
 import { StructuredMessage } from "@/core";
-import { ResourceNode } from "@/core/types";
+import { ResourceNode, Transaction } from "@/core/types";
 import { Theme } from "@/types/theme";
 import { AlertCircle, CheckCircle, XCircle, Brain, FileCode } from "lucide-react";
 import { ResourceContext } from "@/lib/aiApi";
 import { filesystemManager } from "@/core/filesystem";
+import { transactionManager, FileSystemOperation } from "@/core/transactions";
 
 // Extensiones de texto que vale la pena mandar a la IA
 const TEXT_EXTS = new Set([
@@ -48,6 +49,7 @@ export function ConversationPanel({ theme, sessionId, activeResource }: Conversa
   const [input, setInput]               = useState("");
   const [fileContent, setFileContent]   = useState<string | null>(null);
   const [fileLoading, setFileLoading]   = useState(false);
+  const [proposalStatuses, setProposalStatuses] = useState<Record<string, "accepted" | "rejected" | "executing" | "error">>({});
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const isLoading = sessionLoading || aiLoading;
@@ -124,6 +126,45 @@ export function ConversationPanel({ theme, sessionId, activeResource }: Conversa
       handleSend();
     }
   };
+
+  // ── T-032: Aceptar/Rechazar propuestas ─────────────────────────────────
+
+  const handleAcceptProposal = useCallback(async (proposalId: string) => {
+    const proposal = session?.proposals.find(p => p.id === proposalId);
+    if (!proposal) return;
+
+    setProposalStatuses(prev => ({ ...prev, [proposalId]: "executing" }));
+    try {
+      const txTypeMap: Record<string, Transaction["type"]> = {
+        edit: "write", create: "create", delete: "delete",
+        refactor: "write", move: "move", branch: "branch", merge: "write",
+      };
+      const txType = txTypeMap[proposal.type] ?? "write";
+      const tx = await transactionManager.createTransaction(txType, proposal.targetPath);
+
+      const opType: FileSystemOperation["type"] =
+        proposal.type === "delete" ? "delete"
+        : proposal.type === "create" ? "create"
+        : proposal.type === "move" ? "move"
+        : "write";
+
+      const content = typeof proposal.changes?.[0] === "string" ? proposal.changes[0] : undefined;
+      transactionManager.attachOperation(tx.id, {
+        type: opType,
+        sourcePath: proposal.targetPath,
+        ...(content !== undefined && { content }),
+      });
+
+      const ok = await transactionManager.executeTransaction(tx.id);
+      setProposalStatuses(prev => ({ ...prev, [proposalId]: ok ? "accepted" : "error" }));
+    } catch {
+      setProposalStatuses(prev => ({ ...prev, [proposalId]: "error" }));
+    }
+  }, [session]);
+
+  const handleRejectProposal = useCallback((proposalId: string) => {
+    setProposalStatuses(prev => ({ ...prev, [proposalId]: "rejected" }));
+  }, []);
 
   // ── Render de mensajes ────────────────────────────────────────────────
 
@@ -213,7 +254,8 @@ export function ConversationPanel({ theme, sessionId, activeResource }: Conversa
         );
       }
 
-      case "proposal":
+      case "proposal": {
+        const pStatus = proposalStatuses[msg.proposalId];
         return (
           <div style={{
             maxWidth: "80%", padding: "0.8rem", borderRadius: "8px",
@@ -223,32 +265,56 @@ export function ConversationPanel({ theme, sessionId, activeResource }: Conversa
             <p style={{ fontSize: "0.82rem", fontWeight: "500", marginBottom: "0.5rem" }}>
               Propuesta: {msg.summary}
             </p>
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <button
-                onClick={() => console.log("Aceptar:", msg.proposalId)}
-                style={{
-                  padding: "0.4rem 0.8rem", borderRadius: "6px",
-                  background: "#6a9955", border: "none", color: "white",
-                  fontSize: "0.75rem", cursor: "pointer",
-                  display: "flex", alignItems: "center", gap: "0.3rem",
-                }}
-              >
-                <CheckCircle size={14} /> Aceptar
-              </button>
-              <button
-                onClick={() => console.log("Rechazar:", msg.proposalId)}
-                style={{
-                  padding: "0.4rem 0.8rem", borderRadius: "6px",
-                  background: `${theme.accent}30`, border: `1px solid ${theme.accent}44`,
-                  color: theme.text, fontSize: "0.75rem", cursor: "pointer",
-                  display: "flex", alignItems: "center", gap: "0.3rem",
-                }}
-              >
-                <XCircle size={14} /> Rechazar
-              </button>
-            </div>
+            {pStatus === "accepted" && (
+              <div style={{ fontSize: "0.75rem", color: "#6a9955", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                <CheckCircle size={13} /> Ejecutada correctamente
+              </div>
+            )}
+            {pStatus === "rejected" && (
+              <div style={{ fontSize: "0.75rem", color: theme.sub }}>
+                ✕ Rechazada
+              </div>
+            )}
+            {pStatus === "error" && (
+              <div style={{ fontSize: "0.75rem", color: "#ff6b6b", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                <AlertCircle size={13} /> Error al ejecutar — se aplicó rollback
+              </div>
+            )}
+            {!pStatus && (
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <button
+                  onClick={() => handleAcceptProposal(msg.proposalId)}
+                  style={{
+                    padding: "0.4rem 0.8rem", borderRadius: "6px",
+                    background: "#6a9955", border: "none", color: "white",
+                    fontSize: "0.75rem", cursor: "pointer",
+                    display: "flex", alignItems: "center", gap: "0.3rem",
+                    opacity: 1,
+                  }}
+                >
+                  <CheckCircle size={14} /> Aceptar
+                </button>
+                <button
+                  onClick={() => handleRejectProposal(msg.proposalId)}
+                  style={{
+                    padding: "0.4rem 0.8rem", borderRadius: "6px",
+                    background: `${theme.accent}30`, border: `1px solid ${theme.accent}44`,
+                    color: theme.text, fontSize: "0.75rem", cursor: "pointer",
+                    display: "flex", alignItems: "center", gap: "0.3rem",
+                  }}
+                >
+                  <XCircle size={14} /> Rechazar
+                </button>
+              </div>
+            )}
+            {pStatus === "executing" && (
+              <div style={{ fontSize: "0.75rem", color: theme.sub }}>
+                Ejecutando…
+              </div>
+            )}
           </div>
         );
+      }
 
       case "snapshot":
         return (

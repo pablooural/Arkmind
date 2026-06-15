@@ -535,3 +535,18 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 **HANDOFF:** T-032 depende de esta mergeada.
 
 **PROBLEMS / BLOCKERS:** Ninguno.
+
+---
+
+## T-032 — Track F: propuestas IA aceptar/rechazar con transacción real — 2026-06-15 — Replit Agent
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/components/ConversationPanel.tsx` — botones Aceptar/Rechazar wired a `transactionManager.createTransaction + attachOperation + executeTransaction`. Estado local `proposalStatuses` controla feedback visual.
+
+**DECISIONS:** proposalStatuses local (no persiste en sesión) — suficiente para UX de feedback inmediato. Fallback a error display si executeTransaction falla (rollback automático en la capa de transactions).
+
+**HANDOFF:** T-032 mergeada. T-033 (streaming) es independiente.
+
+**PROBLEMS / BLOCKERS:** Ninguno.
