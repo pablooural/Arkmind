@@ -520,3 +520,18 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 **HANDOFF:** T-033 depende de esta mergeada.
 
 **PROBLEMS / BLOCKERS:** Ninguno.
+
+---
+
+## T-029 — Track C: Transaction.validate / execute reales — 2026-06-14 — Replit Agent
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/core/transactions.ts` — `pendingOperations` Map, `attachOperation()`, `validateTransaction()` real, `executeTransaction()` real vía webFilesystemProvider, `FileSystemOperation` exportada.
+
+**DECISIONS:** webFilesystemProvider directo evita ciclo filesystem→transactions. delete con deleteFile().
+
+**HANDOFF:** T-032 depende de esta mergeada.
+
+**PROBLEMS / BLOCKERS:** Ninguno.
