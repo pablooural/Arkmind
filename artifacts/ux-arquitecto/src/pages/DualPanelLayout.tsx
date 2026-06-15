@@ -239,6 +239,7 @@ export default function DualPanelLayout({ sessionId }: DualPanelLayoutProps) {
         <SnapshotPanel
           theme={theme}
           contextPath={selectedResource?.path ?? "/"}
+          filePaths={selectedResource?.type === "file" ? [selectedResource.path] : []}
           onClose={() => setShowSnapshots(false)}
         />
       )}

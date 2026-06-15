@@ -567,3 +567,19 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 **HANDOFF:** T-033 completa. Todas las tarjetas T-026–T-033 implementadas.
 
 **PROBLEMS / BLOCKERS:** Ninguno.
+
+---
+
+## T-034 — SnapshotPanel: crear manual, expandir archivos, eliminar — 2026-06-15 — Replit Agent
+
+**STATUS:** done
+
+**TOUCHED:**
+- artifacts/ux-arquitecto/src/components/SnapshotPanel.tsx — nuevo prop filePaths, boton "+ snap" (crear snapshot manual), fila expandible con lista de archivos incluidos, boton "X" con confirmacion inline para eliminar.
+- artifacts/ux-arquitecto/src/pages/DualPanelLayout.tsx — pasa filePaths=[selectedResource.path] cuando hay archivo activo.
+
+**DECISIONS:** Confirmacion inline en vez de modal. Checkpoint logico (filePaths=[]) cuando no hay archivo seleccionado.
+
+**HANDOFF:** T-034 completa. SnapshotPanel funcionalmente completo.
+
+**PROBLEMS / BLOCKERS:** Ninguno.
