@@ -583,3 +583,18 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 **HANDOFF:** T-034 completa. SnapshotPanel funcionalmente completo.
 
 **PROBLEMS / BLOCKERS:** Ninguno.
+
+---
+
+## T-035 — SnapshotPanel: diff visual snapshot vs estado actual FS — 2026-06-15 — Replit Agent
+
+**STATUS:** done
+
+**TOUCHED:**
+- artifacts/ux-arquitecto/src/components/SnapshotPanel.tsx — diff visual inline al expandir: carga snapshot files (IndexedDB) + estado actual (WebFilesystemProvider), muestra lineas coloreadas (+/-). Algoritmo simple prefix+suffix+middle block. Truncado configurable (120 lineas) con "Ver mas". Reload diff manual.
+
+**DECISIONS:** Algoritmo propio sin librerias externas (evita dependencias). Fallback cuando FS no disponible: muestra solo contenido del snapshot con aviso. Separacion clara: diff loading/done/error con reintentar.
+
+**HANDOFF:** T-035 completa. SnapshotPanel con diff visual funcional.
+
+**PROBLEMS / BLOCKERS:** Ninguno.
