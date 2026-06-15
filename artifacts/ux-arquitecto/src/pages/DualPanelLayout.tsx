@@ -18,6 +18,7 @@ import { ConversationPanel } from "@/components/ConversationPanel";
 import { ResourceExplorer } from "@/components/ResourceExplorer";
 import { EditorPanel } from "@/components/EditorPanel";
 import { SnapshotPanel } from "@/components/SnapshotPanel";
+import { HistoryPanel } from "@/components/HistoryPanel";
 import { SplitView } from "@/components/SplitView";
 import { SlideModeView } from "@/components/SlideModeView";
 import { ResourceNode } from "@/core/types";
@@ -35,6 +36,7 @@ export default function DualPanelLayout({ sessionId }: DualPanelLayoutProps) {
   const [flipping, setFlipping]     = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const [showSnapshots, setShowSnapshots] = useState(false);
+  const [showHistory, setShowHistory]     = useState(false);
   const [theme, setTheme]           = useState<Theme>(getDefaultTheme());
   const [selectedResource, setSelectedResource] = useState<ResourceNode | null>(null);
 
@@ -154,10 +156,18 @@ export default function DualPanelLayout({ sessionId }: DualPanelLayoutProps) {
         </div>
 
         <div style={{ display: "flex", gap: "0.35rem" }}>
+          {/* Botón Historial */}
+          <button
+            style={{...btn(showHistory), fontSize: "14px"}}
+            onClick={() => { setShowHistory((s) => !s); setShowSnapshots(false); }}
+            title="Historial de operaciones"
+          >
+            📋
+          </button>
           {/* Botón Snapshots */}
           <button
             style={{...btn(showSnapshots), fontSize: "14px"}}
-            onClick={() => setShowSnapshots((s) => !s)}
+            onClick={() => { setShowSnapshots((s) => !s); setShowHistory(false); }}
             title="Historial de snapshots"
           >
             ⏱
@@ -233,6 +243,15 @@ export default function DualPanelLayout({ sessionId }: DualPanelLayoutProps) {
           />
         )}
       </div>
+
+      {/* HISTORY PANEL OVERLAY */}
+      {showHistory && (
+        <HistoryPanel
+          theme={theme}
+          contextPath={selectedResource?.path ?? "/"}
+          onClose={() => setShowHistory(false)}
+        />
+      )}
 
       {/* SNAPSHOT PANEL OVERLAY */}
       {showSnapshots && (
