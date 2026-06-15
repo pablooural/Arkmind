@@ -505,3 +505,18 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 **HANDOFF:** Rama `ia/replit-agent/t-027-fix-ts` lista para merge.
 
 **PROBLEMS / BLOCKERS:** Ninguno.
+
+---
+
+## T-030 — Track D: inyectar fileContent en respuestas IA — 2026-06-14 — Replit Agent
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/api-server/src/routes/ai.ts` — dentro del bloque resourceContext, agrega fileContent al prompt del sistema. Truncado a 12000 chars.
+
+**DECISIONS:** MAX_FILE_CONTENT_CHARS=12000. Bloque dentro del if(resourceContext) para evitar null access.
+
+**HANDOFF:** T-033 depende de esta mergeada.
+
+**PROBLEMS / BLOCKERS:** Ninguno.

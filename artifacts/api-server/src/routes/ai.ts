@@ -61,6 +61,20 @@ router.post("/message", async (req, res) => {
         role: "system",
         content: `Recurso activo: "${resourceContext.name}" (${label}) en la ruta ${resourceContext.path}. Adaptá tu respuesta a este tipo de recurso específico.`,
       });
+
+      // Inyectar contenido del archivo si está disponible (T-030)
+      if (resourceContext.fileContent && typeof resourceContext.fileContent === "string" &&
+          resourceContext.fileContent.trim().length > 0) {
+        const MAX_FILE_CONTENT_CHARS = 12000;
+        const fileContent = resourceContext.fileContent.length > MAX_FILE_CONTENT_CHARS
+          ? resourceContext.fileContent.slice(0, MAX_FILE_CONTENT_CHARS) +
+            `\n\n[... contenido truncado — el archivo tiene ${resourceContext.fileContent.length} caracteres en total]`
+          : resourceContext.fileContent;
+        systemMessages.push({
+          role: "system",
+          content: `Contenido actual del archivo "${resourceContext.name}":\n\`\`\`\n${fileContent}\n\`\`\`\nUsá este contenido como referencia directa cuando el usuario haga preguntas o pida cambios sobre él.`,
+        });
+      }
     }
 
     const messages = [
