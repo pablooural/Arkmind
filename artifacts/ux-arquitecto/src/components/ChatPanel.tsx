@@ -38,6 +38,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useSession } from "@/hooks/useSession";
+import { streamMessageFromAI, ConversationMessage } from "@/lib/aiApi";
 import { useAI } from "@/hooks/useAI";
 import { StructuredMessage, sessionManager, AIContextSession } from "@/core";
 import { Theme } from "@/types/theme";
@@ -56,12 +57,13 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
   // Si la prop cambia, sincronizamos con useEffect más abajo.
   const [activeSessionId, setActiveSessionId] = useState<string | null>(sessionId);
   const { session, messages, isLoading: sessionLoading, error: sessionError, sendMessage: sendSessionMessage } = useSession(activeSessionId);
-  const { sendMessage: sendAIMessage, isLoading: aiLoading, error: aiError, isConfigured } = useAI();
+  const { sendMessage: sendAIMessage, isLoading: aiLoading, error: aiError, isConfigured, currentModel } = useAI();
   const [input, setInput] = useState("");
   // T-009: id del mensaje cuyo botón "Copiado" se está mostrando. null = ninguno.
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   // T-011: estado del menú de historial (abierto/cerrado)
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [streamingText, setStreamingText] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const isLoading = sessionLoading || aiLoading;
   const error = sessionError || aiError;
@@ -88,14 +90,58 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
     if (!input.trim()) return;
     if (!activeSessionId) return;
 
-    // Si AI está configurado, enviar a Mistral
-    if (isConfigured) {
-      await sendAIMessage(activeSessionId, input);
-    } else {
-      // Si no, solo agregar a la sesión
-      await sendSessionMessage(input);
-    }
+    const userInput = input;
     setInput("");
+
+    if (isConfigured) {
+      // Construir historial desde la sesión actual
+      const history: ConversationMessage[] = (messages ?? [])
+        .filter((m) => m.type === "text")
+        .slice(-20)
+        .map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: (m as { type: "text"; content: string }).content,
+        }));
+
+      // Agregar mensaje del usuario a la sesión
+      sessionManager.addMessage(activeSessionId, {
+        id: `msg_${Date.now()}`,
+        role: "user",
+        type: "text",
+        content: userInput,
+        timestamp: Date.now(),
+      });
+
+      // Stream la respuesta de la IA
+      setStreamingText("");
+      let fullContent = "";
+      try {
+        fullContent = await streamMessageFromAI(
+          userInput,
+          (token) => setStreamingText((prev) => (prev ?? "") + token),
+          currentModel ?? undefined,
+          history
+        );
+      } catch {
+        fullContent = "";
+        // Fallback a sendAIMessage si el streaming falla
+        await sendAIMessage(activeSessionId, userInput);
+      } finally {
+        setStreamingText(null);
+      }
+
+      if (fullContent) {
+        sessionManager.addMessage(activeSessionId, {
+          id: `msg_${Date.now()}_ai`,
+          role: "assistant",
+          type: "text",
+          content: fullContent,
+          timestamp: Date.now(),
+        });
+      }
+    } else {
+      await sendSessionMessage(userInput);
+    }
   };
 
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -682,7 +728,20 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
           ))
         )}
 
-        {isLoading && (
+        {streamingText !== null && (
+          <div style={{ display: "flex", justifyContent: "flex-start" }}>
+            <div style={{
+              padding: "0.6rem 0.8rem", borderRadius: "12px 12px 12px 3px",
+              background: `${theme.surface}cc`, border: `1px solid ${theme.accent}18`,
+              color: theme.text, fontSize: "0.82rem", lineHeight: 1.55,
+              whiteSpace: "pre-wrap", wordBreak: "break-word", maxWidth: "80%",
+            }}>
+              {streamingText || <span style={{ opacity: 0.4 }}>▌</span>}
+            </div>
+          </div>
+        )}
+
+        {isLoading && !streamingText && (
           <div
             style={{
               padding: "0.6rem 0.8rem",
