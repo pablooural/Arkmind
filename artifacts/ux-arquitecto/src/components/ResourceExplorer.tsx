@@ -325,6 +325,34 @@ export function ResourceExplorer({ theme, onSelectResource, selectedResourcePath
     setSelected(null);
   };
 
+  // T-013: botón "Explorar" — abre el picker de carpetas del browser SIEMPRE,
+  // incluso cuando ya hay acceso (fuerza un nuevo picker via release + request).
+  // Si el browser no soporta File System Access API (Firefox, Safari), muestra
+  // un mensaje explicativo en vez de fallar silencioso.
+  const [exploreError, setExploreError] = useState<string | null>(null);
+  const handleExplore = async () => {
+    setExploreError(null);
+    if (!isSupported) {
+      setExploreError(
+        "Tu browser no soporta la File System Access API. " +
+        "Probá Chrome o Edge 86+ para explorar carpetas locales."
+      );
+      return;
+    }
+    // Si ya hay acceso, liberarlo primero para forzar un picker nuevo
+    if (isReady) {
+      await releaseAccess();
+      setItems([]);
+      setSelected(null);
+    }
+    const ok = await requestAccess();
+    if (!ok) {
+      setExploreError("No se pudo abrir el picker. Reintentá.");
+    } else {
+      setCurrentPath("/");
+    }
+  };
+
   // ── Pantalla sin soporte (solo aplica a tab Archivos) ─────────────────
 
   if (activeTab === "archivos" && !isSupported) {
@@ -372,7 +400,7 @@ export function ResourceExplorer({ theme, onSelectResource, selectedResourcePath
             opacity: loading ? 0.6 : 1, transition: "opacity 0.15s",
           }}
         >
-          {loading ? "abriendo..." : hasPrevious ? `Re-abrir "${rootName}"` : "Abrir carpeta"}
+          {loading ? "explorando..." : hasPrevious ? `Re-explorar "${rootName}"` : "Explorar carpeta"}
         </button>
         {hasPrevious && (
           <span onClick={handleChangeFolder} style={{
@@ -533,17 +561,39 @@ export function ResourceExplorer({ theme, onSelectResource, selectedResourcePath
         padding: "0.35rem 0.9rem",
         borderTop: `1px solid ${theme.accent}12`,
         fontSize: "0.58rem", color: theme.sub, opacity: 0.45,
-        flexShrink: 0, display: "flex", justifyContent: "space-between",
+        flexShrink: 0, display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem",
       }}>
         <span>{items.length} elementos</span>
-        <span
-          onClick={handleChangeFolder}
-          style={{ cursor: "pointer", textDecoration: "underline" }}
-          title="Cambiar carpeta raíz"
-        >
-          cambiar carpeta
+        <span style={{ display: "flex", gap: "0.7rem", alignItems: "center" }}>
+          {/* T-013: botón Explorar — siempre visible, abre el picker */}
+          <span
+            onClick={handleExplore}
+            style={{ cursor: isSupported ? "pointer" : "not-allowed", textDecoration: "underline" }}
+            title={isSupported ? "Abrir picker de carpetas" : "Browser no soporta File System Access API"}
+            data-testid="explore-button"
+          >
+            explorar
+          </span>
+          <span
+            onClick={handleChangeFolder}
+            style={{ cursor: "pointer", textDecoration: "underline" }}
+            title="Cambiar carpeta raíz (reset)"
+          >
+            cambiar carpeta
+          </span>
         </span>
       </div>
+      {exploreError && (
+        <div style={{
+          padding: "0.4rem 0.9rem",
+          background: "#ff6b6b18",
+          borderTop: `1px solid #ff6b6b33`,
+          color: "#ff6b6b",
+          fontSize: "0.62rem",
+        }}>
+          {exploreError}
+        </div>
+      )}
       </>)}
 
       {/* Tab: Contexto (T-012) — usa ContextEnricher de ia-context-bridge */}
