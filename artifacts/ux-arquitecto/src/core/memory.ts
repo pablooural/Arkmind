@@ -2,14 +2,20 @@
  * Memory Manager — Paso 5: Sistema de Memoria Central
  *
  * Implementa los 5 pasos del sistema de memoria:
- *   1. Working Memory   — estado cognitivo inmediato (in-memory + localStorage)
- *   2. Context Memory   — memoria persistente por contexto (localStorage)
+ *   1. Working Memory   — estado cognitivo inmediato (in-memory + IDB)
+ *   2. Context Memory   — memoria persistente por contexto (IDB)
  *   3. Hierarchical     — herencia de memoria por árbol de paths
  *   4. Cognitive Snapshots — snapshots del estado mental/contextual
  *   5. Memory Manager   — carga, herencia, compactación, persistencia
  *
- * Persistencia: localStorage con prefijos `uxarq:mem:` y `uxarq:snap:`
+ * Persistencia: IndexedDB store `memory` (DB `arkmind_runtime`).
  * Sin vector DB, sin embeddings — memoria contextual viva y jerárquica.
+ *
+ * Migración: las versiones tempranas usaban `localStorage` con prefijos
+ * `uxarq:mem:` / `uxarq:snap:`. Esa ruta quedó obsoleta tras ADR 0005
+ * (runtime-persistence, Manus@delta, 2026-06-02). Los métodos que
+ * iteraban `localStorage` se reformularon en t-023 para leer/escribir
+ * desde el store `memory` de IDB vía `idbGet` / `idbSet` / `idbGetAll`.
  */
 
 import { WorkingMemory, ContextMemory, CognitiveSnapshot } from "./types";
@@ -63,6 +69,35 @@ async function idbRemove(id: string): Promise<void> {
   }
 }
 
+/** Leer todos los registros del store `memory`. */
+async function idbGetAll<T>(): Promise<T[]> {
+  try {
+    const { store } = await snapshotStore.getRuntimeStore("memory", "readonly");
+    const request = store.getAll();
+    return new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result as T[]);
+      request.onerror = () => reject(request.error);
+    });
+  } catch (error) {
+    console.warn("Failed to read all memory records from IndexedDB:", error);
+    return [];
+  }
+}
+
+/** Vaciar el store `memory` por completo. */
+async function idbClear(): Promise<void> {
+  try {
+    const { tx, store } = await snapshotStore.getRuntimeStore("memory", "readwrite");
+    store.clear();
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (error) {
+    console.error("Failed to clear memory store in IndexedDB:", error);
+  }
+}
+
 /** Devuelve todos los segmentos de un path, de raíz a hoja. */
 function getPathAncestors(contextPath: string): string[] {
   const parts = contextPath.replace(/\/$/, "").split("/").filter(Boolean);
@@ -111,7 +146,7 @@ export class MemoryManager {
   /** Working Memory vive en RAM durante la sesión, indexada por sessionId */
   private workingMemories: Map<string, WorkingMemory> = new Map();
 
-  /** Cognitive Snapshots en RAM (los recientes); los más viejos se persisten en localStorage */
+  /** Cognitive Snapshots en RAM (los recientes); los más viejos se persisten en IDB */
   private cognitiveSnapshots: Map<string, CognitiveSnapshot> = new Map();
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -226,9 +261,10 @@ export class MemoryManager {
     return updated;
   }
 
-  /** Verificar si un contexto tiene memoria guardada */
-  hasContextMemory(contextPath: string): boolean {
-    return localStorage.getItem(`${MEM_PREFIX}${contextPath}`) !== null;
+  /** Verificar si un contexto tiene memoria guardada en IDB */
+  async hasContextMemory(contextPath: string): Promise<boolean> {
+    const stored = await idbGet<ContextMemory>(`mem:${contextPath}`);
+    return stored !== null;
   }
 
   /** Eliminar Context Memory */
@@ -252,7 +288,7 @@ export class MemoryManager {
     const chain: ContextMemory[] = [];
 
     for (const ancestor of ancestors) {
-      if (this.hasContextMemory(ancestor)) {
+      if (await this.hasContextMemory(ancestor)) {
         chain.push(await this.getContextMemory(ancestor));
       }
     }
@@ -318,7 +354,7 @@ export class MemoryManager {
   ): Promise<CognitiveSnapshot> {
     const id = generateId("cogsnap");
     const wm = this.getWorkingMemory(sessionId);
-    const cm = this.hasContextMemory(contextPath)
+    const cm = (await this.hasContextMemory(contextPath))
       ? await this.getContextMemory(contextPath)
       : undefined;
 
@@ -340,35 +376,27 @@ export class MemoryManager {
     return snapshot;
   }
 
-  /** Obtener snapshot cognitivo por ID */
-  getCognitiveSnapshot(id: string): CognitiveSnapshot | undefined {
+  /** Obtener snapshot cognitivo por ID (IDB) */
+  async getCognitiveSnapshot(id: string): Promise<CognitiveSnapshot | undefined> {
     if (this.cognitiveSnapshots.has(id)) {
       return this.cognitiveSnapshots.get(id);
     }
-    return storageGet<CognitiveSnapshot>(`${SNAP_PREFIX}${id}`) ?? undefined;
+    return (await idbGet<CognitiveSnapshot>(id)) ?? undefined;
   }
 
-  /** Listar snapshots cognitivos de un contexto */
-  listCognitiveSnapshots(contextPath: string): CognitiveSnapshot[] {
-    const results: CognitiveSnapshot[] = [];
-
-    // De localStorage
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith(SNAP_PREFIX)) {
-        const snap = storageGet<CognitiveSnapshot>(key);
-        if (snap && (contextPath === "" || snap.contextPath === contextPath)) {
-          results.push(snap);
-        }
-      }
-    }
-
-    return results.sort((a, b) => b.createdAt - a.createdAt);
+  /** Listar snapshots cognitivos de un contexto (IDB) */
+  async listCognitiveSnapshots(contextPath: string): Promise<CognitiveSnapshot[]> {
+    const all = await idbGetAll<{ id: string } & CognitiveSnapshot>();
+    return all
+      .filter((r) => r.id.startsWith("cogsnap_"))
+      .map((r) => r as CognitiveSnapshot)
+      .filter((snap) => contextPath === "" || snap.contextPath === contextPath)
+      .sort((a, b) => b.createdAt - a.createdAt);
   }
 
-  /** Restaurar Working Memory desde un Cognitive Snapshot */
-  restoreFromSnapshot(snapshotId: string, sessionId: string): WorkingMemory | null {
-    const snap = this.getCognitiveSnapshot(snapshotId);
+  /** Restaurar Working Memory desde un Cognitive Snapshot (IDB) */
+  async restoreFromSnapshot(snapshotId: string, sessionId: string): Promise<WorkingMemory | null> {
+    const snap = await this.getCognitiveSnapshot(snapshotId);
     if (!snap) return null;
 
     const restored: WorkingMemory = {
@@ -377,7 +405,7 @@ export class MemoryManager {
     };
 
     this.workingMemories.set(sessionId, restored);
-    idbSet(`wkmem:${sessionId}`, restored);
+    await idbSet(`wkmem:${sessionId}`, restored);
 
     return restored;
   }
@@ -481,24 +509,18 @@ export class MemoryManager {
   }
 
   /**
-   * Invalidar memorias obsoletas (> N días) de un contexto.
-   * Respeta la memoria local más reciente.
+   * Invalidar snapshots cognitivos obsoletos (> N días) del store IDB.
+   * Respeta el snapshot más reciente.
    */
-  invalidateOldSnapshots(daysOld = 30): number {
+  async invalidateOldSnapshots(daysOld = 30): Promise<number> {
     const cutoff = Date.now() - daysOld * 24 * 60 * 60 * 1000;
-    const toDelete: string[] = [];
+    const all = await idbGetAll<{ id: string; createdAt: number } & CognitiveSnapshot>();
+    const toDelete = all
+      .filter((r) => r.id.startsWith("cogsnap_") && r.createdAt < cutoff)
+      .map((r) => r.id);
 
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith(SNAP_PREFIX)) {
-        const snap = storageGet<CognitiveSnapshot>(key);
-        if (snap && snap.createdAt < cutoff) {
-          toDelete.push(key);
-        }
-      }
-    }
-
-    toDelete.forEach((key) => storageRemove(key));
+    await Promise.all(toDelete.map((id) => idbRemove(id)));
+    toDelete.forEach((id) => this.cognitiveSnapshots.delete(id));
     return toDelete.length;
   }
 
@@ -542,31 +564,22 @@ export class MemoryManager {
 
   /**
    * Exportar toda la memoria del workspace como objeto JSON.
-   * Útil para debugging y backup.
+   * Útil para debugging y backup. Lee de IDB.
    */
-  exportAll(): Record<string, unknown> {
+  async exportAll(): Promise<Record<string, unknown>> {
+    const all = await idbGetAll<{ id: string }>();
     const result: Record<string, unknown> = {};
-
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith(STORAGE_PREFIX)) {
-        result[key] = storageGet(key);
-      }
-    }
-
+    all.forEach((r) => {
+      result[r.id] = r;
+    });
     return result;
   }
 
   /**
-   * Limpiar toda la memoria del workspace.
+   * Limpiar toda la memoria del workspace (IDB + caches en RAM).
    */
-  clearAll(): void {
-    const toDelete: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key?.startsWith(STORAGE_PREFIX)) toDelete.push(key);
-    }
-    toDelete.forEach((key) => storageRemove(key));
+  async clearAll(): Promise<void> {
+    await idbClear();
     this.workingMemories.clear();
     this.cognitiveSnapshots.clear();
   }

@@ -52,8 +52,11 @@ export function useMemory({ sessionId, contextPath = "/" }: UseMemoryOptions): U
       console.error(`Failed to load hierarchical memory for ${contextPath}:`, error);
     });
 
-    const snaps = memoryManager.listCognitiveSnapshots(contextPath);
-    setSnapshots(snaps.slice(0, 10));
+    memoryManager.listCognitiveSnapshots(contextPath)
+      .then((snaps) => setSnapshots(snaps.slice(0, 10)))
+      .catch((error) => {
+        console.error(`Failed to list cognitive snapshots for ${contextPath}:`, error);
+      });
   }, [sessionId, contextPath]);
 
   const updateWorkingMemory = useCallback(
@@ -94,8 +97,11 @@ export function useMemory({ sessionId, contextPath = "/" }: UseMemoryOptions): U
   const restoreSnapshot = useCallback(
     (snapshotId: string) => {
       if (!sessionId) return;
-      const restored = memoryManager.restoreFromSnapshot(snapshotId, sessionId);
-      if (restored) setWorkingMemory({ ...restored });
+      memoryManager.restoreFromSnapshot(snapshotId, sessionId).then((restored) => {
+        if (restored) setWorkingMemory({ ...restored });
+      }).catch((error) => {
+        console.error(`Failed to restore snapshot ${snapshotId}:`, error);
+      });
     },
     [sessionId]
   );

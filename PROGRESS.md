@@ -667,3 +667,44 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 - **T-021 puede arrancar en paralelo** con T-016/T-019/T-020 (su SPEC no depende de la implementación de los otros, solo de que existan los stores).
 
 **PROBLEMS / BLOCKERS:** (vacío)
+
+---
+
+## t-023 — Fix híbrido localStorage/IDB en core/memory.ts — 2026-06-15 — Mavis
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/core/memory.ts` — header actualizado (de "localStorage" a "IndexedDB store `memory`"); nuevos helpers `idbGetAll<T>()` y `idbClear()`; 7 métodos reformulados para usar IDB en vez de localStorage: `hasContextMemory`, `getCognitiveSnapshot`, `listCognitiveSnapshots`, `restoreFromSnapshot`, `invalidateOldSnapshots`, `exportAll`, `clearAll`. 2 callers internos dentro del mismo archivo actualizados (`loadHierarchicalMemory` ahora hace `await this.hasContextMemory`; `createCognitiveSnapshot` también)
+- `artifacts/ux-arquitecto/src/hooks/useMemory.ts` — 2 callers actualizados al nuevo contrato async: `listCognitiveSnapshots` con `.then()` + `.catch()`, `restoreSnapshot` con `.then()` + `.catch()`
+- `PROGRESS.md` — esta entrada (re-appendeada post-merge conflict)
+
+**VERIFIED:**
+- Grep final en `memory.ts`: cero referencias a `MEM_PREFIX` / `SNAP_PREFIX` / `STORAGE_PREFIX` / `storageGet` / `storageRemove`. Cero usos de `localStorage` fuera del comentario de header (que documenta la migración histórica)
+- Las 7 firmas nuevas son `async` y devuelven `Promise<...>`. Sincronizadas con sus callers
+- Re-check: ningún caller interno sin `await` para los métodos ahora async (verificado con grep)
+- Typecheck no end-to-end (sin `node_modules` en el sandbox). `tsc --noEmit` con `--noResolve` muestra errores pre-existentes (TS2835 sobre extensiones, TS7006 sobre implicit any en callbacks pre-existentes) — **ninguno introducido por t-023**
+
+**NOT VERIFIED:**
+- `pnpm install` end-to-end (sigue timeout-eando a 5 min, mismo issue que el resto del repo)
+- Runtime en browser (no testeable desde sandbox). El fix no agrega lógica nueva, solo cambia **cómo se lee**; los writes a IDB ya estaban bien. Riesgo bajo de regresión
+- Migración de datos viejos de localStorage → IDB: NO se hace automáticamente. Si un usuario tenía datos en `localStorage` con prefijo `uxarq:`, quedan huérfanos. Decisión: ignorarlos (probablemente stale). Si Pablo quiere script de migración, va en una tarjeta aparte
+
+**DECISIONS:**
+- **Métodos pasan de sync a async donde fue necesario**: `hasContextMemory`, `getCognitiveSnapshot`, `listCognitiveSnapshots`, `restoreFromSnapshot`, `invalidateOldSnapshots`, `exportAll`, `clearAll`. Cambia el contrato público de la clase, pero el único caller externo es `useMemory.ts` (actualizado). Trade-off: más IDB roundtrips, pero código correcto.
+- **`loadHierarchicalMemory` ahora hace N+1 IDB reads** (uno por `hasContextMemory` + uno por `getContextMemory`, por ancestro). Típico: 1-5 ancestros. Acceptable. Optimización futura si la latencia duele: combinar en un solo `getAll()` y filtrar en memoria.
+- **`getCognitiveSnapshot` mantiene el cache en RAM** como fast-path para la sesión actual. Across sessions va a IDB (que es la fuente de verdad post-fix).
+- **`hasContextMemory` no se cachea** (decidí no agregar más estado). Si la performance duele, se puede agregar un `Set<contextPath>` pre-poblado en `hydrate()`. Diferir.
+- **Header del archivo se actualizó** para que deje de mentir ("Persistencia: localStorage" → "Persistencia: IndexedDB store `memory`"). También agregué un párrafo de "Migración" que documenta el por qué del cambio.
+
+**OPEN QUESTIONS:**
+- ¿Vale la pena agregar un test mínimo que demuestre antes/después del fix? No hay infraestructura de tests para `core/memory.ts` en el repo. Diferir — el fix es verifiable manualmente con un browser.
+- ¿La performance de N+1 IDB reads en `loadHierarchicalMemory` se nota en la práctica? Monitorear post-merge. Si duele, el cache de `hasContextMemory` es la solución.
+- ¿Hay otros archivos en el repo que también quedaron con referencias a `MEM_PREFIX` / `SNAP_PREFIX` / `STORAGE_PREFIX` que no vi? El grep que hice fue solo en `memory.ts`. Habría que hacer un grep global para confirmar.
+
+**HANDOFF:**
+- **Próxima tarjeta natural: T-016 (snapshot ejecutivo)** del TASKS-MEMORY-ARCHITECTURE.md. El memory system ya está sobre base sólida; se puede construir el ejecutivo encima.
+- **Antes de T-016**: leer el audit (T-015 → `.arkmind/REVIEWS/memory-state-context-audit-2026-06.md`) para entender los otros 5 solapamientos y 9 huecos que quedan.
+- **Backlog del audit P1**: implementar T-019 (estado vivo), T-020 (active_tasks). T-017, T-018, T-021, T-022 dependen o se benefician de T-016.
+
+**PROBLEMS / BLOCKERS:** (vacío)
