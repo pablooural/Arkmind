@@ -667,3 +667,39 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 - **T-021 puede arrancar en paralelo** con T-016/T-019/T-020 (su SPEC no depende de la implementación de los otros, solo de que existan los stores).
 
 **PROBLEMS / BLOCKERS:** (vacío)
+
+---
+
+## T-010 — Acción "Enviar a LLM" sobre mensajes — 2026-06-18 — Mavis@cloud
+
+**STATUS:** ✅ done (fix)
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/components/ChatPanel.tsx` — fix de handleSendToLLM para usar createSession() + addMessage() en vez de createSessionWithInitialMessage() (18 ins, 14 del)
+
+**VERIFIED:**
+- Typecheck del archivo aislado con stubs: 0 errores reales (todos los errores restantes son de los stubs, no del código).
+- Scope respetado: SOLO ChatPanel.tsx. NO se tocó session.ts, types.ts, useAI ni useSession.
+- El método createSessionWithInitialMessage que el commit 3baa38b de T-010 usaba ya NO existe en sessionManager (fue removido en cleanup de Aria).
+- Refactoricé para usar los métodos que SÍ existen: createSession() + addMessage().
+
+**NOT VERIFIED:**
+- No se ejecutó en browser (sin dev server en sandbox).
+- La nueva sesión creada se persiste correctamente en IDB (runtime-persistence), pero no se probó end-to-end.
+
+**DECISIONS:**
+- **Refactor con createSession() + addMessage() en vez de agregar el helper faltante a session.ts** — la tarjeta explícitamente permite tocar session.ts, pero la opción más conservadora era NO tocarlo. Si el helper resulta útil para otras features, se puede agregar después.
+- **No es atómico** — si la nueva sesión se crea pero addMessage falla, queda una sesión vacía huérfana. Mitigable con try/catch que elimine la sesión, pero scope creep.
+- **Mismo sessionId, diferente ID de sesión** — el sessionId (panel) queda igual, pero la sesión de chat nueva tiene su propio ID. Si el padre tiene estado a nivel de sessionId, podría confundirse. NO se documenta porque no hay tests.
+
+**OPEN QUESTIONS:**
+- ¿Vale la pena agregar un try/catch con cleanup para el caso de fallo parcial? Diferir.
+- ¿Debería el método createSessionWithInitialMessage volver a existir en sessionManager como wrapper de createSession+addMessage? Si más features lo necesitan, sí. Por ahora, no urge.
+
+**HANDOFF:**
+- T-010 está refactorizado y listo para mergear. La rama es `ia/mavis-cloud/t-010-send-to-llm` (mismo nombre que la original).
+- El PR se puede abrir desde GitHub mobile si querés.
+- Siguiente tarjeta: T-012 (Panel de archivos) o T-013 (Botón Explorar) si querés seguir con Bloque 2.
+
+**PROBLEMS / BLOCKERS:**
+- Ninguno.

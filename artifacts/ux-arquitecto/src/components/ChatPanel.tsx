@@ -30,10 +30,10 @@
  * - Crea una nueva sesión (mismo panelId/contextPath) y le inserta el contenido
  *   como primer mensaje de la nueva conversación
  * - Navega a la nueva sesión: cambia activeSessionId y notifica onSessionChange
- * - Helper `createSessionWithInitialMessage` agregado en session.ts
- *   (1 método nuevo, sin tocar los existentes)
- * - Scope: ChatPanel.tsx + 1 método nuevo en session.ts
- * - NO modifica types.ts ni ia-context-bridge.ts ni useSession
+ * - Implementación actual: usa createSession() + addMessage() por separado
+ *   (el helper createSessionWithInitialMessage del commit original 3baa38b
+ *   ya no existe en sessionManager — fue removido en un cleanup posterior)
+ * - Scope: ChatPanel.tsx. NO modifica session.ts, types.ts, useAI ni useSession.
  */
 
 import { useState, useRef, useEffect } from "react";
@@ -189,8 +189,19 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
       },
     };
 
-    // Crear el mensaje inicial. Tipo "text" porque es lo más general; el
-    // contenido es lo que el usuario quería delegar.
+    // Crear la nueva sesión usando el createSession() estándar que ya existe.
+    // (No usamos createSessionWithInitialMessage porque no existe en la versión
+    // actual de sessionManager; agregamos el mensaje inicial con addMessage
+    // en el segundo paso. No es atómico, pero es coherente con el resto del código.)
+    const newSession = sessionManager.createSession(
+      source.panelId,
+      source.contextPath,
+      source.cognitiveContext,
+      visualContext
+    );
+    if (!newSession) return;
+
+    // Crear el mensaje inicial y agregarlo a la nueva sesión.
     const initialMessage: StructuredMessage = {
       id: `msg_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
       role: "user",
@@ -198,14 +209,7 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
       content,
       timestamp: Date.now(),
     };
-
-    // Crear la nueva sesión.
-    const newSession = sessionManager.createSessionWithInitialMessage(
-      source.id,
-      initialMessage,
-      visualContext
-    );
-    if (!newSession) return;
+    sessionManager.addMessage(newSession.id, initialMessage);
 
     // Navegar a la nueva sesión.
     setActiveSessionId(newSession.id);
