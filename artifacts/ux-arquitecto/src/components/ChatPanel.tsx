@@ -34,6 +34,13 @@
  *   (1 método nuevo, sin tocar los existentes)
  * - Scope: ChatPanel.tsx + 1 método nuevo en session.ts
  * - NO modifica types.ts ni ia-context-bridge.ts ni useSession
+ *
+ * T-037 (Mavis@cloud, 2026-06-17): botón "+" con menú dropdown (base UI).
+ * - Botón "+" a la izquierda del input del chat; "Enviar" sigue a la derecha
+ * - Al click abre dropdown con 2 opciones deshabilitadas:
+ *   "📎 Subir archivo" (T-038) y "📄 Crear archivo" (T-039)
+ * - Cierre: click fuera, Escape, o click en el mismo botón
+ * - Scope: solo ChatPanel.tsx. Sin handlers reales, solo UI base.
  */
 
 import { useState, useRef, useEffect } from "react";
@@ -42,7 +49,7 @@ import { streamMessageFromAI, ConversationMessage } from "@/lib/aiApi";
 import { useAI } from "@/hooks/useAI";
 import { StructuredMessage, sessionManager, AIContextSession } from "@/core";
 import { Theme } from "@/types/theme";
-import { AlertCircle, CheckCircle, XCircle, Copy, Check, Menu, X, Send } from "lucide-react";
+import { AlertCircle, CheckCircle, XCircle, Copy, Check, Menu, X, Send, Plus } from "lucide-react";
 import { visualManager } from "@/core/visual";
 
 interface ChatPanelProps {
@@ -63,6 +70,8 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   // T-011: estado del menú de historial (abierto/cerrado)
   const [historyOpen, setHistoryOpen] = useState(false);
+  // T-037: estado del menú del botón "+" (subir / crear archivo)
+  const [plusMenuOpen, setPlusMenuOpen] = useState(false);
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const isLoading = sessionLoading || aiLoading;
@@ -85,6 +94,16 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
+
+  // T-037: cierre del menú "+" con Escape
+  useEffect(() => {
+    if (!plusMenuOpen) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPlusMenuOpen(false);
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [plusMenuOpen]);
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -786,6 +805,118 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
           flexShrink: 0,
         }}
       >
+        {/* T-037: botón "+" a la izquierda del input */}
+        <div style={{ position: "relative", flexShrink: 0 }}>
+          <button
+            onClick={() => setPlusMenuOpen((v) => !v)}
+            aria-label="Adjuntar archivo"
+            aria-expanded={plusMenuOpen}
+            title="Adjuntar archivo o crear uno nuevo"
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: "10px",
+              background: plusMenuOpen ? `${theme.accent}22` : "transparent",
+              border: `1px solid ${theme.accent}40`,
+              color: theme.sub,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              transition: "background 0.15s, color 0.15s",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = `${theme.accent}22`;
+              e.currentTarget.style.color = theme.text;
+            }}
+            onMouseLeave={(e) => {
+              if (!plusMenuOpen) {
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.color = theme.sub;
+              }
+            }}
+          >
+            <Plus size={16} />
+          </button>
+
+          {/* T-037: dropdown con 2 opciones deshabilitadas (las activan T-038 y T-039) */}
+          {plusMenuOpen && (
+            <>
+              {/* Capa invisible para detectar click fuera */}
+              <div
+                onClick={() => setPlusMenuOpen(false)}
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 40,
+                }}
+              />
+              <div
+                role="menu"
+                style={{
+                  position: "absolute",
+                  bottom: "calc(100% + 6px)",
+                  left: 0,
+                  minWidth: "200px",
+                  background: theme.surface,
+                  border: `1px solid ${theme.accent}30`,
+                  borderRadius: "10px",
+                  padding: "0.4rem",
+                  boxShadow: `0 6px 20px ${theme.bg}aa`,
+                  zIndex: 50,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.2rem",
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  disabled
+                  title="Próximamente: T-038"
+                  aria-label="Subir archivo (próximamente)"
+                  style={{
+                    padding: "0.5rem 0.7rem",
+                    borderRadius: "6px",
+                    background: "transparent",
+                    border: "none",
+                    color: theme.sub,
+                    fontSize: "0.8rem",
+                    textAlign: "left",
+                    cursor: "not-allowed",
+                    opacity: 0.5,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                  }}
+                >
+                  📎 Subir archivo
+                </button>
+                <button
+                  disabled
+                  title="Próximamente: T-039"
+                  aria-label="Crear archivo (próximamente)"
+                  style={{
+                    padding: "0.5rem 0.7rem",
+                    borderRadius: "6px",
+                    background: "transparent",
+                    border: "none",
+                    color: theme.sub,
+                    fontSize: "0.8rem",
+                    textAlign: "left",
+                    cursor: "not-allowed",
+                    opacity: 0.5,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.5rem",
+                  }}
+                >
+                  📄 Crear archivo
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
