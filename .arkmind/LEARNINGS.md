@@ -233,3 +233,37 @@ git log origin/HEAD..HEAD --oneline 2>/dev/null | head -5 || \
 **Limitación conocida:** `gh pr list` requiere el CLI de GitHub autenticado. Si no está, el bloque usa curl + API (más lento pero funciona con solo el token).
 
 **Nota:** esto NO va a CONVENTIONS.md como sección obligatoria. Es un script de ayuda. Si el equipo lo usa mucho, se puede formalizar en `.arkmind/scripts/audit.sh`.
+
+## L-007 — Si `generateId` usa separador X, todos los `startsWith` deben usar X — 2026-06-18 — Aria
+
+**Categoría:** runtime
+
+**Qué pasó:** Auditando `memory.ts` (después de T-023 de Mavis que migró lectura a IDB), encontré un bug silencioso en `MemoryManager.hydrate()`. La función recorría los registros de IDB y discriminaba por prefijo del ID:
+
+```ts
+if (r.id.startsWith("wkmem:")) {           // ← OK
+  this.workingMemories.set(...);
+} else if (r.id.startsWith("cogsnap:")) {  // ← ❌ con dos puntos
+  this.cognitiveSnapshots.set(...);
+}
+```
+
+Pero `generateId("cogsnap")` retorna `` `${prefix}_${Date.now()}_${random}` `` — **con guion bajo**, no dos puntos. Las otras 2 ocurrencias del archivo (`listCognitiveSnapshots` y `invalidateOldSnapshots`) sí usaban `"cogsnap_"` correctamente. Solo `hydrate` quedó desfasado. Resultado: al iniciar el runtime, los cognitive snapshots quedaban escritos en IDB pero **no se cargaban al `cognitiveSnapshots` Map en RAM** — invisibles para el resto del `MemoryManager`. Bug silencioso, sin error de compilación, sin excepción, sin nada en consola.
+
+**Aprendizaje:** cuando un módulo define un formato de ID (un prefijo + un separador como `:`, `_`, `-`), **todos los call sites que parsean/filtran por prefijo deben usar ese mismo separador**. Si en el mismo archivo ves 2+ separadores distintos para el mismo prefijo, es bug. Es el tipo de error que sobrevive a una migración (en este caso la migración localStorage→IDB de T-023) sin ser detectado, porque la migración cambió el comportamiento pero mantuvo el código "parecido" al original.
+
+**Qué hacer — auditoría de consistencia de prefijos, 1 grep:**
+
+```bash
+# Reemplazar "cogsnap" por el prefijo que estés auditando
+grep -n 'startsWith("cogsnap' artifacts/ux-arquitecto/src/core/memory.ts
+# Si la salida tiene 2+ separadores distintos (":" vs "_"), es bug.
+```
+
+**Regla mnemónica:** para cada `generateId(prefix)`, `grep` todos los call sites de `startsWith("${prefix}")` y `endsWith("${prefix}")` y verificar consistencia carácter por carácter. Si hay mismatch, fix de 1 línea.
+
+**Por qué importa:** sin este chequeo, bugs de este tipo sobreviven indefinidamente. La IA que implementó `hydrate` y la que migró a IDB nunca se cruzaron en git blame; el bug quedó en tierra de nadie. Como próxima IA, este grep te lleva 5 segundos y puede salvarte un merge de un fix silencioso en producción.
+
+**Nota:** el fix del PR (`ia/aria/fix-cogsnap-hydrate`) cambió `cogsnap:` por `cogsnap_` en `hydrate()`. Es seguro porque `generateId("cogsnap")` ya retornaba con guion bajo — no rompe ningún ID existente en IDB, solo arregla que se lean.
+
+**Conexión con L-005:** L-005 decía "verificar contra `origin/main` antes de reclamar". Esto es más chiquito pero complementario: "verificar consistencia interna del archivo antes de mergear". Mismo espíritu: 1 grep te ahorra horas de debugging futuro.
