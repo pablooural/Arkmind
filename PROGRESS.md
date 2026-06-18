@@ -708,3 +708,47 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 - **Backlog del audit P1**: implementar T-019 (estado vivo), T-020 (active_tasks). T-017, T-018, T-021, T-022 dependen o se benefician de T-016.
 
 **PROBLEMS / BLOCKERS:** (vacío)
+
+---
+
+## T-039 — Crear archivo nuevo (mini-form desde el chat) — 2026-06-18 — Mavis
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/components/ChatPanel.tsx` — header doc actualizado con bloque T-039; nuevos imports (`webFilesystemProvider`, `snapshotManager`); nueva prop opcional `onFileCreated`; 4 nuevos state (`createFormOpen`, `createFileName`, `createError`, `createSubmitting`); nueva const `fsReady = webFilesystemProvider.isReady()`; nuevo `useEffect` para cerrar el form con Escape; nuevo helper `handleTogglePlus` para el botón "+"; 3 handlers nuevos (`handleStartCreate`, `handleCancelCreate`, `handleCreateFile`); helper `validateCreateFileName`; el botón "Crear archivo" del dropdown pasó de disabled-fijo a dinámico según `fsReady`; nuevo bloque JSX con el mini-form inline (input + 2 botones + error display); el botón "+" ahora se "activa" tanto con dropdown como con form abiertos
+- `PROGRESS.md` — esta entrada
+
+**VERIFIED:**
+- Diff final: +232/-13 líneas en `ChatPanel.tsx` (1 archivo, scope respetado)
+- `fsReady` se computa en cada render (sync y barato)
+- El mini-form tiene: input con `autoFocus`, `Enter` submitea, `Escape` cierra, click-fuera cierra
+- Validación: nombre vacío / `\\` / `..` / leading `/` rejected; auto-extensión a `.tsx` si no hay punto
+- El check de carpeta padre usa `webFilesystemProvider.getDirectoryTree(parentPath, 0)` — devuelve `null` si no existe
+- El snapshot pre-create llama a `snapshotManager.createSnapshot` con el path del archivo nuevo; si el snapshot falla, se loguea warning y se sigue (no bloquea el create)
+- Notificación al padre: `onFileCreated?.(filePath)` después del éxito. El padre (DualPanelLayout) no está wireado todavía — eso es T-040
+- Typecheck: errores de `tsc --noResolve` son todos pre-existentes (cannot find module 'react'/'@/hooks/...' por falta de `node_modules`; implicit any en callbacks pre-existentes). **Ningún error nuevo introducido por T-039**
+
+**NOT VERIFIED:**
+- `pnpm install` end-to-end (sigue timeout-eando a 5 min, mismo issue que el resto)
+- Runtime en browser (no testeable desde sandbox)
+- Edge case: el usuario desmonta el filesystem (cierra la ventana de permisos) MIENTRAS el form está abierto. El form intentará `writeFile`, que retornará `notReady()` con error. Mostramos el error inline. Pero no tenemos un listener reactivo que detecte el desmontaje y cierre el form automáticamente.
+- El snapshot pre-create es esencialmente un marker (el archivo nuevo no existe todavía, así que `createSnapshot` lo skipea con un warning). Funcional pero cosmético. Si Pablo quiere rollback real del create, va en una tarjeta aparte.
+
+**DECISIONS:**
+- **Interpreté "no permitir `/`" del spec como "no permitir leading `/`"** (no `\\`, no `..`). El ejemplo del spec mismo es `src/utils/foo.ts` que contiene `/`. Bloquear todos los `/` haría imposible usar subdirectorios, contradiciendo el ejemplo.
+- **El padre (DualPanelLayout) NO se tocó**. Agregué `onFileCreated` como prop opcional de `ChatPanel` pero el padre no lo pasa todavía. Cuando T-040 lo wiree, va a poder abrir el EditorPanel con el nuevo archivo. Si no se pasa el prop, el archivo se crea pero no se abre — comportamiento aceptable, sin throw.
+- **El snapshot pre-create no es bloqueante**: si `snapshotManager.createSnapshot` falla, logueo warning y sigo con el write. El create es la operación importante, el snapshot es nice-to-have.
+- **Reemplacé el botón "+" `onClick={() => setPlusMenuOpen((v) => !v)}` por `handleTogglePlus`** que maneja tanto el toggle del dropdown como el cierre del form. Sin esto, el botón "+" no podría cerrar el form con un click.
+- **El dropdown ahora tiene `&& !createFormOpen`** en su condición de render, para que no se muestre mientras el form está abierto (visualmente confuso si los dos aparecen a la vez).
+
+**OPEN QUESTIONS:**
+- ¿La opción "Subir archivo" (T-038) debería poder usar el mismo mini-form? No, son flows distintos (T-038 = file picker real, T-039 = input de texto). Las tarjetas están bien separadas.
+- ¿Vale la pena mover la validación a un helper compartido en `@/core/utils`? Por ahora está inline en `ChatPanel.tsx`. Si se reusa en otros lados, se puede extraer. Diferir.
+
+**HANDOFF:**
+- **T-038 (Subir archivo local)** sigue pendiente. La opción "Subir archivo" del dropdown sigue deshabilitada (T-037 original). El próximo que la tome debe tocar `ChatPanel.tsx` en la misma área donde toqué yo — habrá merge conflict en el dropdown, pero es trivial de resolver (cada uno toca un botón distinto).
+- **T-040 (wirear `onFileCreated` en `DualPanelLayout`)** sería el siguiente lógico. Cuando alguien lo implemente, el flujo "Crear archivo" se cierra: el padre recibe la notificación, setea `selectedResource` a un nuevo `ResourceNode` con el path del archivo nuevo, y el `EditorPanel` se abre. Scope: solo `DualPanelLayout.tsx`.
+- **Backlog menor**: si el filesystem se desmonta durante el form, el writeFile falla con error. Se podría agregar un listener reactivo (`webFilesystemProvider.onRootChange`) que cierre el form automáticamente. Diferir.
+
+**PROBLEMS / BLOCKERS:** (vacío)
