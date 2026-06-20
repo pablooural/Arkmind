@@ -16,6 +16,7 @@
 | `op-journal` | ✅ done | Manus@delta | `rollback-engine` | 0006 |
 | `runtime-persistence` | ✅ done | Manus@delta | `op-journal` | 0005 |
 | `spec-discrepancies` | ✅ done | Aria | — | 0003-0004 (accepted); 0005 fuera de alcance |
+| `resource-explorer` | ✅ done | Aria | `webFilesystemProvider` (consume) | — |
 
 ### Leyenda
 - ✅ done — implementado y verificado
