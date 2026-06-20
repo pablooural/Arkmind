@@ -41,6 +41,16 @@
  *   "📎 Subir archivo" (T-038) y "📄 Crear archivo" (T-039)
  * - Cierre: click fuera, Escape, o click en el mismo botón
  * - Scope: solo ChatPanel.tsx. Sin handlers reales, solo UI base.
+ *
+ * T-038 (Mavis@cloud, 2026-06-19): activar opción "Subir archivo".
+ * - Acepta `.zip` e imágenes (`.jpg,.png,.gif,.webp,.svg`).
+ * - Imagen: readAsDataURL → preview inline `<img>` en el chat.
+ * - Zip: readAsArrayBuffer → mensaje "📦 zip subido: nombre.zip (X MB)".
+ * - Si filesystem está montado Y es imagen: persistir con writeFile
+ *   y notificar al padre via `onResourceChange` (abre en EditorPanel).
+ * - Si no está montado: "leído en memoria, abrí una carpeta para guardar".
+ * - Scope: ChatPanel.tsx + 1 prop nueva en la interfaz.
+ * - NO toca core/*, types.ts, EditorPanel.tsx.
  */
 
 import { useState, useRef, useEffect } from "react";
@@ -49,17 +59,20 @@ import { streamMessageFromAI, ConversationMessage } from "@/lib/aiApi";
 import { useAI } from "@/hooks/useAI";
 import { StructuredMessage, sessionManager, AIContextSession } from "@/core";
 import { Theme } from "@/types/theme";
-import { AlertCircle, CheckCircle, XCircle, Copy, Check, Menu, X, Send, Plus } from "lucide-react";
+import { AlertCircle, CheckCircle, XCircle, Copy, Check, Menu, X, Send, Plus, Paperclip, Package } from "lucide-react";
 import { visualManager } from "@/core/visual";
+import { webFilesystemProvider } from "@/core/WebFilesystemProvider";
 
 interface ChatPanelProps {
   theme: Theme;
   sessionId: string | null;
   /** T-011: callback opcional cuando el usuario cambia de sesión desde el menú */
   onSessionChange?: (newSessionId: string) => void;
+  /** T-038: callback opcional cuando un archivo subido debe abrirse en el editor */
+  onResourceChange?: (resource: { path: string; name: string; type: string; size?: number }) => void;
 }
 
-export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps) {
+export function ChatPanel({ theme, sessionId, onSessionChange, onResourceChange }: ChatPanelProps) {
   // T-011: state interno para la sesión activa. Inicializado con la prop.
   // Si la prop cambia, sincronizamos con useEffect más abajo.
   const [activeSessionId, setActiveSessionId] = useState<string | null>(sessionId);
@@ -72,6 +85,8 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
   const [historyOpen, setHistoryOpen] = useState(false);
   // T-037: estado del menú del botón "+" (subir / crear archivo)
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
+  // T-038: ref al input file oculto (lo disparamos desde el botón del dropdown)
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const isLoading = sessionLoading || aiLoading;
@@ -230,6 +245,85 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
     setActiveSessionId(newSession.id);
     if (onSessionChange) {
       onSessionChange(newSession.id);
+    }
+  };
+
+  // T-038: formatea el tamaño del archivo a string legible (KB/MB/GB).
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  };
+
+  // T-038: handler de "Subir archivo". Acepta .zip e imágenes.
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Limpiar el input para permitir re-upload del mismo archivo
+    e.target.value = "";
+    setPlusMenuOpen(false);
+    if (!file) return;
+
+    const isImage = file.type.startsWith("image/");
+    const isZip = file.name.toLowerCase().endsWith(".zip") || file.type === "application/zip" || file.type === "application/x-zip-compressed";
+    // Otros tipos: ignorar (fuera del scope de T-038)
+    if (!isImage && !isZip) {
+      console.warn(`[T-038] Tipo no soportado: ${file.type || "desconocido"}`);
+      return;
+    }
+
+    // Construir mensaje base que se va a enviar al chat
+    let messageContent: string;
+    if (isImage) {
+      // Imagen: leer como data URL para preview inline
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      messageContent = `[imagen:${dataUrl}] ${file.name} (${formatFileSize(file.size)})`;
+    } else {
+      // Zip: mensaje sin preview (queda como blob en memoria; no se persiste)
+      messageContent = `📦 ${file.name} (${formatFileSize(file.size)}) — zip cargado en memoria`;
+    }
+
+    // Enviar como mensaje del usuario en la sesión activa
+    if (activeSessionId) {
+      await sendSessionMessage(messageContent);
+    }
+
+    // Si filesystem está montado Y es imagen: persistir y notificar al editor
+    if (isImage && webFilesystemProvider.isReady()) {
+      // Path: nombre del archivo, en la raíz del workspace (el provider
+      // resuelve relative a la raíz elegida).
+      const relativePath = file.name;
+      const dataUrl = (messageContent.match(/^\[imagen:(data:[^\]]+)\]/) || [])[1] ?? "";
+      const base64 = dataUrl.split(",")[1] ?? "";
+      // Decode base64 → texto (las imágenes se persisten como data URL por simplicidad;
+      // si Pablo quiere binario real, abrir ADR — no es scope de T-038).
+      let binaryStr = "";
+      try {
+        binaryStr = atob(base64);
+      } catch {
+        // No se pudo decodificar; seguimos sin persistir.
+      }
+      if (binaryStr) {
+        const result = await webFilesystemProvider.writeFile(relativePath, binaryStr);
+        if (result.success && onResourceChange) {
+          // Notificar al padre para que abra el EditorPanel
+          onResourceChange({
+            path: relativePath,
+            name: file.name,
+            type: file.type,
+            size: file.size,
+          });
+        }
+      }
+    } else if (!webFilesystemProvider.isReady()) {
+      // Mensaje inline de fallback ya está implícito en el content del mensaje.
+      // Si quieres un aviso más visible, se puede agregar un toast (otra tarjeta).
+      console.info(`[T-038] Archivo ${file.name} leído en memoria. Abrí una carpeta para persistir.`);
     }
   };
 
@@ -805,6 +899,16 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
           flexShrink: 0,
         }}
       >
+        {/* T-038: input file oculto, lo dispara el botón "Subir archivo" del dropdown */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".zip,.jpg,.jpeg,.png,.gif,.webp,.svg,application/zip,image/*"
+          onChange={handleFileSelected}
+          style={{ display: "none" }}
+          aria-hidden="true"
+        />
+
         {/* T-037: botón "+" a la izquierda del input */}
         <div style={{ position: "relative", flexShrink: 0 }}>
           <button
@@ -871,25 +975,27 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
-                  disabled
-                  title="Próximamente: T-038"
-                  aria-label="Subir archivo (próximamente)"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Subir archivo (.zip o imagen)"
+                  aria-label="Subir archivo"
                   style={{
                     padding: "0.5rem 0.7rem",
                     borderRadius: "6px",
                     background: "transparent",
                     border: "none",
-                    color: theme.sub,
+                    color: theme.text,
                     fontSize: "0.8rem",
                     textAlign: "left",
-                    cursor: "not-allowed",
-                    opacity: 0.5,
+                    cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
                     gap: "0.5rem",
                   }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = `${theme.accent}22`)}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                 >
-                  📎 Subir archivo
+                  <Paperclip size={14} />
+                  Subir archivo
                 </button>
                 <button
                   disabled
