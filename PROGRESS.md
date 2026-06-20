@@ -752,3 +752,41 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 - **Backlog menor**: si el filesystem se desmonta durante el form, el writeFile falla con error. Se podría agregar un listener reactivo (`webFilesystemProvider.onRootChange`) que cierre el form automáticamente. Diferir.
 
 **PROBLEMS / BLOCKERS:** (vacío)
+
+---
+
+## T-012 — Panel de archivos visible desde el chat — 2026-06-14 — Aria (doc agregada 2026-06-20 por Mavis@cloud)
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/components/ResourceExplorer.tsx` — refactor a panel multi-tab (765 líneas). 5 tabs: Archivos / Contexto / Snapshots / Contratos / ADRs.
+- `artifacts/ux-arquitecto/src/pages/DualPanelLayout.tsx` — integración de ResourceExplorer como Panel B.
+
+**VERIFIED (revisión de Mavis@cloud 2026-06-20):**
+- Tabs presentes y operativas (default "archivos").
+- Componentes separados: ContextoTab, SnapshotsTab, StaticListTab (para contratos y ADRs).
+- Retornos tempranos de "browser no compatible" / "sin acceso" solo aplican a la tab Archivos.
+- Integrado en DualPanelLayout como Panel B (al lado del ConversationPanel).
+- T-013 (botón Explorar) y T-014 (árbol navegable, ya cubierto por T-012) mergeados después.
+
+**NOT VERIFIED:**
+- Runtime en browser real (no se probó UX de las tabs).
+- Snapshots tab: ¿se carga correctamente desde snapshotStore.listSnapshots()?
+- Static lists de contratos/ADRs: v0.1 las tiene hardcodeadas. v0.2 debería leerlas dinámicamente.
+
+**DECISIONS (de Aria):**
+- Listas de contratos/ADRs hardcodeadas en v0.1 (predecible, no toca Vite). v0.2 las lee de import.meta.glob o filesystemManager.
+- Las 5 tabs funcionan independientemente del FS provider (excepto "archivos" que sí lo necesita).
+
+**OPEN QUESTIONS:**
+- ¿Migrar las listas hardcodeadas de contratos/ADRs a dinámicas? (SUGGESTIONS si Pablo quiere).
+- ¿Vale la pena agregar tab "Módulos" o "_REGISTRY.md" raw?
+
+**HANDOFF:**
+- T-012 está cerrado, T-013 mergeado, T-014 cerrado (covered by T-012).
+- Bloque 2 completo. Plan de tarjetas (T-009..T-014) cerrado.
+- Próximo: si Pablo quiere, nuevas tarjetas del plan. Si no, focus en otros pendientes (workflow docs, S004 del buzón, etc.)
+
+**PROBLEMS / BLOCKERS:**
+- Ninguno.

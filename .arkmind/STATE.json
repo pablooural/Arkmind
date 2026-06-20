@@ -1,8 +1,8 @@
 {
   "project": "Arkmind",
   "schemaVersion": 2,
-  "lastUpdated": "2026-06-02T11:30:00Z",
-  "currentFocus": "runtime-persistence done (Manus@delta) · ADR 0005 accepted · All core persistence implemented",
+  "lastUpdated": "2026-06-18T02:00:00Z",
+  "currentFocus": "T-009, T-010, T-011, T-012, T-013, T-014 todos cerrados. Plan completo de tarjetas del Bloque 1+2 listo.",
   "modules": {
     "snapshot-store": {
       "status": "done",
@@ -17,7 +17,9 @@
       "claimedAt": "2026-06-02T11:52:00Z",
       "completedAt": "2026-06-02T12:05:00Z",
       "branch": "ia/mavis-cloud/rollback-engine",
-      "dependsOn": ["snapshot-store"],
+      "dependsOn": [
+        "snapshot-store"
+      ],
       "adr": "0002 (accepted)"
     },
     "op-journal": {
@@ -25,7 +27,9 @@
       "claimedBy": "Manus@delta",
       "completedAt": "2026-06-02T13:15:00Z",
       "branch": "ia/manus/op-journal",
-      "dependsOn": ["rollback-engine"],
+      "dependsOn": [
+        "rollback-engine"
+      ],
       "adr": "0006 (accepted)"
     },
     "spec-discrepancies": {
@@ -42,8 +46,57 @@
       "claimedBy": "Manus@delta",
       "completedAt": "2026-06-02T14:15:00Z",
       "branch": "ia/manus/runtime-persistence",
-      "dependsOn": ["op-journal"],
+      "dependsOn": [
+        "op-journal"
+      ],
       "adr": "0005 (accepted)"
+    },
+    "t-012-resource-panel": {
+      "status": "done",
+      "claimedBy": "Aria",
+      "claimedAt": "2026-06-14T14:00:00Z",
+      "completedAt": "2026-06-14T15:00:00Z",
+      "branch": "ia/aria/t-012-resource-explorer",
+      "dependsOn": [],
+      "adr": null,
+      "note": "Panel multi-tab (Archivos/Contexto/Snapshots/Contratos/ADRs). Cubrió T-014 (árbol navegable) por extensión — Aria lo cerró en PR #45."
+    },
+    "t-009-copy-to-chat": {
+      "status": "done",
+      "claimedBy": "Mavis@cloud",
+      "completedAt": "2026-06-07T08:00:00Z",
+      "branch": "ia/mavis-cloud/t-009-copy-to-chat",
+      "dependsOn": [],
+      "adr": null
+    },
+    "t-010-send-to-llm": {
+      "status": "in_progress",
+      "claimedBy": "Mavis@cloud",
+      "completedAt": null,
+      "branch": "ia/mavis-cloud/t-010-send-to-llm",
+      "dependsOn": [
+        "t-009-copy-to-chat"
+      ],
+      "adr": null,
+      "note": "Fix aplicado en commit ee53b99. Pendiente de merge por Pablo."
+    },
+    "t-011-history-menu": {
+      "status": "done",
+      "claimedBy": "Mavis@cloud",
+      "completedAt": "2026-06-08T08:00:00Z",
+      "branch": "ia/mavis-cloud/t-011-history-menu",
+      "dependsOn": [],
+      "adr": null
+    },
+    "t-013-explore-button": {
+      "status": "done",
+      "claimedBy": "Aria",
+      "completedAt": "2026-06-16T23:16:18Z",
+      "branch": "ia/aria/t-013-explore-button",
+      "dependsOn": [
+        "t-012-resource-panel"
+      ],
+      "adr": null
     }
   },
   "openQuestions": [
@@ -77,29 +130,19 @@
   ],
   "recentActivity": [
     {
-      "date": "2026-06-02T10:35:00Z",
-      "by": "Mavis",
-      "action": "Reorganización: introducido modelo de módulos + AXIOMS.md + ADRs 0001-0002"
-    },
-    {
-      "date": "2026-06-02T12:05:00Z",
+      "date": "2026-06-20T01:40:00Z",
       "by": "Mavis@cloud",
-      "action": "rollback-engine done: rollback() con RollbackResult, verifyRestoration(), ADR 0002 accepted, transactions.ts caller actualizado, types.ts extendido con 'rollback_failed'"
+      "action": "T-012 docs: registro del trabajo de Aria (panel multi-tab). T-012 ya estaba done pero sin documentar en STATE/PROGRESS."
     },
     {
-      "date": "2026-06-02T10:50:00Z",
-      "by": "Aria",
-      "action": "claim spec-discrepancies: refiné SPEC/CONTRACT a v0.2, decisión de alcance: ADR 0003+0004 sí, ADR 0005 fuera (sesión propia)"
+      "date": "2026-06-18T02:00:00Z",
+      "by": "Mavis@cloud",
+      "action": "T-010 fix: createSessionWithInitialMessage reemplazado por createSession+addMessage"
     },
     {
-      "date": "2026-06-02T11:30:00Z",
-      "by": "Aria",
-      "action": "spec-discrepancies done: AIProvider interface + NoopAIProvider (default) + MistralAIProvider en ai.ts, AuthConfig con remoteUrl/remoteKey + aliases deprecated en auth.ts, ADRs 0003 y 0004 accepted, Q2 resuelta"
-    },
-    {
-      "date": "2026-06-01T14:00:00Z",
-      "by": "Mavis",
-      "action": "Snapshot persistence implementada y commitada (push pendiente)"
+      "date": "2026-06-15T18:00:00Z",
+      "by": "Mavis@cloud",
+      "action": "T-011 cerrado: menu hamburguesa con historial de sesiones"
     }
   ]
 }
