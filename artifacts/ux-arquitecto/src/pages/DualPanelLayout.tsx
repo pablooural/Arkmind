@@ -68,6 +68,19 @@ export default function DualPanelLayout({ sessionId }: DualPanelLayoutProps) {
       theme={theme}
       sessionId={sessionId}
       activeResource={selectedResource}
+      onResourceChange={(resource) => {
+        // T-038: cuando el chat sube un archivo y el padre quiere abrirlo en el editor,
+        // construimos un ResourceNode mínimo y lo activamos.
+        setSelectedResource({
+          id: resource.path,
+          path: resource.path,
+          name: resource.name,
+          type: "file",
+          size: resource.size,
+          ext: resource.name.includes(".") ? resource.name.split(".").pop() : undefined,
+        });
+        if (mode === "slide" && (swapped || !swapped)) setSideOpen(false);
+      }}
     />
   );
 

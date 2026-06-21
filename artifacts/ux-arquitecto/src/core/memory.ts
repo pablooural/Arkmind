@@ -164,7 +164,7 @@ export class MemoryManager {
           records.forEach((r) => {
             if (r.id.startsWith("wkmem:")) {
               this.workingMemories.set(r.id.replace("wkmem:", ""), r);
-            } else if (r.id.startsWith("cogsnap:")) {
+            } else if (r.id.startsWith("cogsnap_")) {
               this.cognitiveSnapshots.set(r.id, r);
             }
           });

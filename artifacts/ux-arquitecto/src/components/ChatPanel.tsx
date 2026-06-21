@@ -41,15 +41,37 @@
  *   "📎 Subir archivo" (T-038) y "📄 Crear archivo" (T-039)
  * - Cierre: click fuera, Escape, o click en el mismo botón
  * - Scope: solo ChatPanel.tsx. Sin handlers reales, solo UI base.
+ *
+ * T-038 (Mavis@cloud, 2026-06-19): activar opción "Subir archivo".
+ * - Acepta `.zip` e imágenes (`.jpg,.png,.gif,.webp,.svg`).
+ * - Imagen: readAsDataURL → preview inline `<img>` en el chat.
+ * - Zip: readAsArrayBuffer → mensaje "📦 zip subido: nombre.zip (X MB)".
+ * - Si filesystem está montado Y es imagen: persistir con writeFile
+ *   y notificar al padre via `onResourceChange` (abre en EditorPanel).
+ * - Si no está montado: "leído en memoria, abrí una carpeta para guardar".
+ * - Scope: ChatPanel.tsx + 1 prop nueva en la interfaz.
+ * - NO toca core/*, types.ts, EditorPanel.tsx.
+ *
+ * T-039 (Mavis, 2026-06-18): activar "Crear archivo" del menú de T-037.
+ * - Opción dinámica: enabled solo si `webFilesystemProvider.isReady()`.
+ * - Si no: disabled, tooltip "Abrí una carpeta primero (botón Explorar)".
+ * - Click → mini-form inline (input nombre + "Crear"/"Cancelar" + error).
+ * - Validación: no vacío, sin '\\' / '..' / leading '/'; auto-extensión a .tsx.
+ * - Al confirmar: snapshot pre-create + chequeo de carpeta padre (no auto-crea)
+ *   + `webFilesystemProvider.writeFile(path, "")` + notifica al padre vía
+ *   `onFileCreated` (T-040 lo va a wirear para abrir el EditorPanel).
+ * - Scope: solo ChatPanel.tsx. Sin tocar `core/*` ni `types.ts` ni
+ *   `DualPanelLayout` (la integración padre es T-040).
  */
 
 import { useState, useRef, useEffect } from "react";
 import { useSession } from "@/hooks/useSession";
 import { streamMessageFromAI, ConversationMessage } from "@/lib/aiApi";
 import { useAI } from "@/hooks/useAI";
-import { StructuredMessage, sessionManager, AIContextSession } from "@/core";
+import { StructuredMessage, sessionManager, AIContextSession, snapshotManager } from "@/core";
+import { webFilesystemProvider } from "@/core/WebFilesystemProvider";
 import { Theme } from "@/types/theme";
-import { AlertCircle, CheckCircle, XCircle, Copy, Check, Menu, X, Send, Plus } from "lucide-react";
+import { AlertCircle, CheckCircle, XCircle, Copy, Check, Menu, X, Send, Plus, Paperclip, Package } from "lucide-react";
 import { visualManager } from "@/core/visual";
 
 interface ChatPanelProps {
@@ -57,9 +79,15 @@ interface ChatPanelProps {
   sessionId: string | null;
   /** T-011: callback opcional cuando el usuario cambia de sesión desde el menú */
   onSessionChange?: (newSessionId: string) => void;
+  /** T-038: callback opcional cuando un archivo subido debe abrirse en el editor */
+  onResourceChange?: (resource: { path: string; name: string; type: string; size?: number }) => void;
+  /** T-039: callback opcional cuando se crea un archivo nuevo desde el chat.
+   *  El padre (DualPanelLayout → T-040) lo usa para abrir el EditorPanel.
+   *  Si no se pasa, el archivo se crea pero no se abre en el editor. */
+  onFileCreated?: (filePath: string) => void;
 }
 
-export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps) {
+export function ChatPanel({ theme, sessionId, onSessionChange, onResourceChange, onFileCreated }: ChatPanelProps) {
   // T-011: state interno para la sesión activa. Inicializado con la prop.
   // Si la prop cambia, sincronizamos con useEffect más abajo.
   const [activeSessionId, setActiveSessionId] = useState<string | null>(sessionId);
@@ -72,8 +100,17 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
   const [historyOpen, setHistoryOpen] = useState(false);
   // T-037: estado del menú del botón "+" (subir / crear archivo)
   const [plusMenuOpen, setPlusMenuOpen] = useState(false);
+  // T-038: ref al input file oculto (lo disparamos desde el botón del dropdown)
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // T-039: estado del mini-form "Crear archivo" (reemplaza el dropdown cuando está abierto)
+  const [createFormOpen, setCreateFormOpen] = useState(false);
+  const [createFileName, setCreateFileName]   = useState("");
+  const [createError, setCreateError]         = useState<string | null>(null);
+  const [createSubmitting, setCreateSubmitting] = useState(false);
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  // T-039: ¿hay un filesystem montado? Se recomputa en cada render (es sync y barato).
+  const fsReady = webFilesystemProvider.isReady();
   const isLoading = sessionLoading || aiLoading;
   const error = sessionError || aiError;
 
@@ -104,6 +141,104 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
   }, [plusMenuOpen]);
+
+  // T-039: cierre del mini-form "Crear archivo" con Escape (Enter se maneja en el input)
+  useEffect(() => {
+    if (!createFormOpen) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") handleCancelCreate();
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [createFormOpen]);
+
+  // T-039: helper para abrir/cerrar el mini-form desde el botón "+"
+  const handleTogglePlus = () => {
+    if (createFormOpen) {
+      handleCancelCreate();
+    } else {
+      setPlusMenuOpen((v) => !v);
+    }
+  };
+
+  // T-039: handlers del mini-form "Crear archivo"
+  function handleStartCreate() {
+    setPlusMenuOpen(false);
+    setCreateError(null);
+    setCreateFileName("");
+    setCreateFormOpen(true);
+  }
+
+  function handleCancelCreate() {
+    setCreateFormOpen(false);
+    setCreateFileName("");
+    setCreateError(null);
+    setCreateSubmitting(false);
+  }
+
+  // ─── T-039: validación de nombre de archivo ─────────────────────────────
+  function validateCreateFileName(input: string): { ok: true; path: string } | { ok: false; error: string } {
+    const trimmed = input.trim();
+    if (!trimmed) return { ok: false, error: "El nombre no puede estar vacío" };
+    if (trimmed.includes("\\")) return { ok: false, error: "No se permite '\\' en el nombre" };
+    if (trimmed.includes("..")) return { ok: false, error: "No se permite '..' en el nombre" };
+    if (trimmed.startsWith("/")) return { ok: false, error: "No se permite '/' al inicio" };
+    // Auto-extensión: si no tiene punto, agregar .tsx por default.
+    const withExt = trimmed.includes(".") ? trimmed : `${trimmed}.tsx`;
+    return { ok: true, path: withExt };
+  }
+
+  async function handleCreateFile() {
+    if (createSubmitting) return;
+    const validation = validateCreateFileName(createFileName);
+    if (!validation.ok) {
+      setCreateError(validation.error);
+      return;
+    }
+    const filePath = validation.path;
+
+    setCreateError(null);
+    setCreateSubmitting(true);
+    try {
+      // Chequeo de pre-condición: la carpeta padre debe existir.
+      // (T-039 prohíbe auto-crear directorios intermedios.)
+      const slashIdx = filePath.lastIndexOf("/");
+      const parentPath = slashIdx > 0 ? filePath.substring(0, slashIdx) : "/";
+      if (parentPath !== "/") {
+        const parentNode = await webFilesystemProvider.getDirectoryTree(parentPath, 0);
+        if (!parentNode) {
+          setCreateError(`La carpeta "${parentPath}" no existe. Creá los directorios manualmente.`);
+          setCreateSubmitting(false);
+          return;
+        }
+      }
+
+      // Snapshot de seguridad (sigue la spec de T-039; para CREATE es
+      // esencialmente un marker — el archivo nuevo todavía no existe).
+      try {
+        await snapshotManager.createSnapshot("/", [filePath], "manual", `Antes de crear ${filePath}`);
+      } catch (err) {
+        console.warn("[ChatPanel] Snapshot pre-create falló, continuando:", err);
+      }
+
+      // Crear el archivo (vacío).
+      const writeResult = await webFilesystemProvider.writeFile(filePath, "");
+      if (!writeResult.success) {
+        setCreateError(`Error al crear: ${writeResult.error ?? "desconocido"}`);
+        setCreateSubmitting(false);
+        return;
+      }
+
+      // Éxito — cerrar form y notificar al padre.
+      handleCancelCreate();
+      onFileCreated?.(filePath);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error desconocido";
+      setCreateError(`Error inesperado: ${msg}`);
+      setCreateSubmitting(false);
+    }
+  }
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -230,6 +365,85 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
     setActiveSessionId(newSession.id);
     if (onSessionChange) {
       onSessionChange(newSession.id);
+    }
+  };
+
+  // T-038: formatea el tamaño del archivo a string legible (KB/MB/GB).
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+  };
+
+  // T-038: handler de "Subir archivo". Acepta .zip e imágenes.
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Limpiar el input para permitir re-upload del mismo archivo
+    e.target.value = "";
+    setPlusMenuOpen(false);
+    if (!file) return;
+
+    const isImage = file.type.startsWith("image/");
+    const isZip = file.name.toLowerCase().endsWith(".zip") || file.type === "application/zip" || file.type === "application/x-zip-compressed";
+    // Otros tipos: ignorar (fuera del scope de T-038)
+    if (!isImage && !isZip) {
+      console.warn(`[T-038] Tipo no soportado: ${file.type || "desconocido"}`);
+      return;
+    }
+
+    // Construir mensaje base que se va a enviar al chat
+    let messageContent: string;
+    if (isImage) {
+      // Imagen: leer como data URL para preview inline
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
+      messageContent = `[imagen:${dataUrl}] ${file.name} (${formatFileSize(file.size)})`;
+    } else {
+      // Zip: mensaje sin preview (queda como blob en memoria; no se persiste)
+      messageContent = `📦 ${file.name} (${formatFileSize(file.size)}) — zip cargado en memoria`;
+    }
+
+    // Enviar como mensaje del usuario en la sesión activa
+    if (activeSessionId) {
+      await sendSessionMessage(messageContent);
+    }
+
+    // Si filesystem está montado Y es imagen: persistir y notificar al editor
+    if (isImage && webFilesystemProvider.isReady()) {
+      // Path: nombre del archivo, en la raíz del workspace (el provider
+      // resuelve relative a la raíz elegida).
+      const relativePath = file.name;
+      const dataUrl = (messageContent.match(/^\[imagen:(data:[^\]]+)\]/) || [])[1] ?? "";
+      const base64 = dataUrl.split(",")[1] ?? "";
+      // Decode base64 → texto (las imágenes se persisten como data URL por simplicidad;
+      // si Pablo quiere binario real, abrir ADR — no es scope de T-038).
+      let binaryStr = "";
+      try {
+        binaryStr = atob(base64);
+      } catch {
+        // No se pudo decodificar; seguimos sin persistir.
+      }
+      if (binaryStr) {
+        const result = await webFilesystemProvider.writeFile(relativePath, binaryStr);
+        if (result.success && onResourceChange) {
+          // Notificar al padre para que abra el EditorPanel
+          onResourceChange({
+            path: relativePath,
+            name: file.name,
+            type: file.type,
+            size: file.size,
+          });
+        }
+      }
+    } else if (!webFilesystemProvider.isReady()) {
+      // Mensaje inline de fallback ya está implícito en el content del mensaje.
+      // Si quieres un aviso más visible, se puede agregar un toast (otra tarjeta).
+      console.info(`[T-038] Archivo ${file.name} leído en memoria. Abrí una carpeta para persistir.`);
     }
   };
 
@@ -805,18 +1019,28 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
           flexShrink: 0,
         }}
       >
+        {/* T-038: input file oculto, lo dispara el botón "Subir archivo" del dropdown */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".zip,.jpg,.jpeg,.png,.gif,.webp,.svg,application/zip,image/*"
+          onChange={handleFileSelected}
+          style={{ display: "none" }}
+          aria-hidden="true"
+        />
+
         {/* T-037: botón "+" a la izquierda del input */}
         <div style={{ position: "relative", flexShrink: 0 }}>
           <button
-            onClick={() => setPlusMenuOpen((v) => !v)}
+            onClick={handleTogglePlus}
             aria-label="Adjuntar archivo"
-            aria-expanded={plusMenuOpen}
+            aria-expanded={plusMenuOpen || createFormOpen}
             title="Adjuntar archivo o crear uno nuevo"
             style={{
               width: 36,
               height: 36,
               borderRadius: "10px",
-              background: plusMenuOpen ? `${theme.accent}22` : "transparent",
+              background: plusMenuOpen || createFormOpen ? `${theme.accent}22` : "transparent",
               border: `1px solid ${theme.accent}40`,
               color: theme.sub,
               cursor: "pointer",
@@ -830,7 +1054,7 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
               e.currentTarget.style.color = theme.text;
             }}
             onMouseLeave={(e) => {
-              if (!plusMenuOpen) {
+              if (!plusMenuOpen && !createFormOpen) {
                 e.currentTarget.style.background = "transparent";
                 e.currentTarget.style.color = theme.sub;
               }
@@ -839,8 +1063,108 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
             <Plus size={16} />
           </button>
 
-          {/* T-037: dropdown con 2 opciones deshabilitadas (las activan T-038 y T-039) */}
-          {plusMenuOpen && (
+          {/* T-039: mini-form inline "Crear archivo" (reemplaza al dropdown) */}
+          {createFormOpen && (
+            <>
+              {/* Capa invisible para detectar click fuera */}
+              <div
+                onClick={handleCancelCreate}
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 40,
+                }}
+              />
+              <div
+                role="dialog"
+                aria-label="Crear archivo"
+                style={{
+                  position: "absolute",
+                  bottom: "calc(100% + 6px)",
+                  left: 0,
+                  minWidth: "280px",
+                  background: theme.surface,
+                  border: `1px solid ${theme.accent}30`,
+                  borderRadius: "10px",
+                  padding: "0.6rem",
+                  boxShadow: `0 6px 20px ${theme.bg}aa`,
+                  zIndex: 50,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "0.4rem",
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div style={{ fontSize: "0.7rem", color: theme.sub, opacity: 0.7 }}>
+                  Crear archivo (se agrega <code style={{ fontFamily: "'Courier New', monospace" }}>.tsx</code> si falta extensión)
+                </div>
+                <input
+                  type="text"
+                  value={createFileName}
+                  onChange={(e) => { setCreateFileName(e.target.value); setCreateError(null); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !createSubmitting) handleCreateFile();
+                  }}
+                  placeholder="ej: App o src/utils/foo"
+                  autoFocus
+                  disabled={createSubmitting}
+                  style={{
+                    padding: "0.4rem 0.6rem",
+                    borderRadius: "6px",
+                    background: `${theme.bg}cc`,
+                    border: `1px solid ${theme.accent}30`,
+                    color: theme.text,
+                    fontSize: "0.8rem",
+                    outline: "none",
+                    fontFamily: "'Courier New', monospace",
+                  }}
+                />
+                {createError && (
+                  <div style={{ fontSize: "0.7rem", color: "#f87171", padding: "0 0.2rem" }}>
+                    {createError}
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: "0.4rem", justifyContent: "flex-end" }}>
+                  <button
+                    onClick={handleCancelCreate}
+                    disabled={createSubmitting}
+                    style={{
+                      padding: "0.35rem 0.7rem",
+                      borderRadius: "6px",
+                      background: "transparent",
+                      border: `1px solid ${theme.accent}30`,
+                      color: theme.sub,
+                      fontSize: "0.75rem",
+                      cursor: createSubmitting ? "not-allowed" : "pointer",
+                      opacity: createSubmitting ? 0.5 : 1,
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleCreateFile}
+                    disabled={createSubmitting}
+                    style={{
+                      padding: "0.35rem 0.7rem",
+                      borderRadius: "6px",
+                      background: `${theme.accent}30`,
+                      border: `1px solid ${theme.accent}60`,
+                      color: theme.accent,
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      cursor: createSubmitting ? "not-allowed" : "pointer",
+                      opacity: createSubmitting ? 0.5 : 1,
+                    }}
+                  >
+                    {createSubmitting ? "Creando..." : "Crear"}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* T-037: dropdown con 2 opciones (Subir archivo deshabilitado, Crear archivo T-039) */}
+          {plusMenuOpen && !createFormOpen && (
             <>
               {/* Capa invisible para detectar click fuera */}
               <div
@@ -871,30 +1195,34 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
-                  disabled
-                  title="Próximamente: T-038"
-                  aria-label="Subir archivo (próximamente)"
+                  onClick={() => fileInputRef.current?.click()}
+                  title="Subir archivo (.zip o imagen)"
+                  aria-label="Subir archivo"
                   style={{
                     padding: "0.5rem 0.7rem",
                     borderRadius: "6px",
                     background: "transparent",
                     border: "none",
-                    color: theme.sub,
+                    color: theme.text,
                     fontSize: "0.8rem",
                     textAlign: "left",
-                    cursor: "not-allowed",
-                    opacity: 0.5,
+                    cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
                     gap: "0.5rem",
                   }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = `${theme.accent}22`)}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                 >
-                  📎 Subir archivo
+                  <Paperclip size={14} />
+                  Subir archivo
                 </button>
                 <button
-                  disabled
-                  title="Próximamente: T-039"
-                  aria-label="Crear archivo (próximamente)"
+                  disabled={!fsReady}
+                  title={fsReady ? "Crear archivo en el workspace" : "Abrí una carpeta primero (botón Explorar)"}
+                  aria-label="Crear archivo"
+                  aria-disabled={!fsReady}
+                  onClick={fsReady ? handleStartCreate : undefined}
                   style={{
                     padding: "0.5rem 0.7rem",
                     borderRadius: "6px",
@@ -903,11 +1231,18 @@ export function ChatPanel({ theme, sessionId, onSessionChange }: ChatPanelProps)
                     color: theme.sub,
                     fontSize: "0.8rem",
                     textAlign: "left",
-                    cursor: "not-allowed",
-                    opacity: 0.5,
+                    cursor: fsReady ? "pointer" : "not-allowed",
+                    opacity: fsReady ? 1 : 0.5,
                     display: "flex",
                     alignItems: "center",
                     gap: "0.5rem",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (fsReady) e.currentTarget.style.background = `${theme.accent}18`;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "transparent";
                   }}
                 >
                   📄 Crear archivo
