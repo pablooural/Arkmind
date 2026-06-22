@@ -126,7 +126,7 @@ export function useFilesystemAccess(): UseFilesystemAccessReturn {
           // el nombre guardado y pedimos al usuario que re-autorice con un click.
           setRootName(saved);
           // No ponemos isReady=true todavía — el handle no existe todavía.
-          // El FileExplorer mostrará "Re-abrir [nombre]" en lugar de "Abrir carpeta".
+          // El ResourceExplorer mostrará "Re-abrir [nombre]" en lugar de "Abrir carpeta".
         }
       } finally {
         setIsLoading(false);
