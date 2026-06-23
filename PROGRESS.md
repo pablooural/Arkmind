@@ -708,3 +708,31 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 - **Backlog del audit P1**: implementar T-019 (estado vivo), T-020 (active_tasks). T-017, T-018, T-021, T-022 dependen o se benefician de T-016.
 
 **PROBLEMS / BLOCKERS:** (vacío)
+
+---
+
+## T-010 (merge) — Merge de T-010-fix con main, conflictos resueltos — 2026-06-23 — Mavis@cloud
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/components/ChatPanel.tsx` — resolución del conflicto del header comment (T-010 + T-037 + T-039, 3 secciones coexisten)
+- `PROGRESS.md` — agregada esta entrada + T-023 (que se había perdido del main)
+
+**VERIFIED:**
+- Conflictos resueltos manualmente. 0 marcadores de conflicto restantes en el árbol.
+- T-010 sigue funcionando con `createSession() + addMessage()` (no `createSessionWithInitialMessage`).
+- T-037 y T-039 siguen presentes (botón + y crear archivo).
+- T-023 entry agregada al final (recuperada del commit cf40ba2).
+
+**DECISIONS:**
+- **Mantener T-010 con la nota del fix, no agregar el helper faltante a session.ts** — coherente con la decisión original del fix (T-010 ya mergeó sin tocar core/).
+- **Merge de T-023 agregado al final de PROGRESS** — si T-023 se había mergeado antes que T-010, debería estar antes en el log. Pero como vino después en el orden cronológico, lo pongo al final con un comentario claro.
+
+**HANDOFF:**
+- El merge está en la rama `merge/t-010` (commit `108a286`).
+- PR para abrir: `https://github.com/pablooural/Arkmind/pull/new/merge/t-010`.
+- Una vez mergeado, la rama `ia/mavis-cloud/t-010-send-to-llm` original queda obsoleta.
+
+**PROBLEMS / BLOCKERS:**
+- Ninguno.
