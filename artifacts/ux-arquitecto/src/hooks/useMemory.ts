@@ -189,7 +189,7 @@ export function useMemory({ sessionId, contextPath = "/" }: UseMemoryOptions): U
   return {
     workingMemory,
     contextMemory,
-    hasMemory: contextMemory !== null || (workingMemory?.focus !== ""),
+    hasMemory: contextMemory !== null || (workingMemory?.focus ?? "") !== "",
     snapshots,
     updateWorkingMemory,
     updateContextMemory,
