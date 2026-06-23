@@ -43,20 +43,33 @@ export function useMemory({ sessionId, contextPath = "/" }: UseMemoryOptions): U
   useEffect(() => {
     if (!sessionId) return;
 
+    // FIX A: race condition — si sessionId/contextPath cambia mientras las
+    // promesas están en vuelo, ignoramos las respuestas obsoletas para no
+    // pisar el state de la nueva sesión con datos de la anterior.
+    let cancelled = false;
+
     const wm = memoryManager.getWorkingMemory(sessionId);
-    setWorkingMemory(wm);
+    if (!cancelled) setWorkingMemory(wm);
 
     memoryManager.loadHierarchicalMemory(contextPath).then(({ merged, chain }) => {
+      if (cancelled) return;
       setContextMemory(chain.length > 0 ? merged : null);
     }).catch((error) => {
+      if (cancelled) return;
       console.error(`Failed to load hierarchical memory for ${contextPath}:`, error);
     });
 
     memoryManager.listCognitiveSnapshots(contextPath)
-      .then((snaps) => setSnapshots(snaps.slice(0, 10)))
+      .then((snaps) => {
+        if (cancelled) return;
+        setSnapshots(snaps.slice(0, 10));
+      })
       .catch((error) => {
+        if (cancelled) return;
         console.error(`Failed to list cognitive snapshots for ${contextPath}:`, error);
       });
+
+    return () => { cancelled = true; };
   }, [sessionId, contextPath]);
 
   const updateWorkingMemory = useCallback(
@@ -145,26 +158,38 @@ export function useMemory({ sessionId, contextPath = "/" }: UseMemoryOptions): U
 
   const addDecision = useCallback(
     (decision: string) => {
-      updateContextMemory({
-        keyDecisions: [...(contextMemory?.keyDecisions ?? []), decision],
-      });
+      if (!sessionId) return;
+      // FIX B: leer del manager (no del state React, que puede ser null o
+      // desactualizado por timing con useEffect). integrateAIResponse hace
+      // read+append+write atómicamente desde la fuente de verdad (IDB+RAM).
+      memoryManager.integrateAIResponse(contextPath, sessionId, "", { addDecision: decision })
+        .then(() => memoryManager.getContextMemory(contextPath))
+        .then((updated) => { setContextMemory({ ...updated }); })
+        .catch((error) => {
+          console.error(`Failed to add decision for ${contextPath}:`, error);
+        });
     },
-    [contextMemory, updateContextMemory]
+    [sessionId, contextPath]
   );
 
   const addQuestion = useCallback(
     (question: string) => {
-      updateContextMemory({
-        openQuestions: [...(contextMemory?.openQuestions ?? []), question],
-      });
+      if (!sessionId) return;
+      // FIX B: idem addDecision, pero para openQuestions
+      memoryManager.integrateAIResponse(contextPath, sessionId, "", { addQuestion: question })
+        .then(() => memoryManager.getContextMemory(contextPath))
+        .then((updated) => { setContextMemory({ ...updated }); })
+        .catch((error) => {
+          console.error(`Failed to add question for ${contextPath}:`, error);
+        });
     },
-    [contextMemory, updateContextMemory]
+    [sessionId, contextPath]
   );
 
   return {
     workingMemory,
     contextMemory,
-    hasMemory: contextMemory !== null || (workingMemory?.focus !== ""),
+    hasMemory: contextMemory !== null || (workingMemory?.focus ?? "") !== "",
     snapshots,
     updateWorkingMemory,
     updateContextMemory,
