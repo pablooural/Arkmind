@@ -158,20 +158,32 @@ export function useMemory({ sessionId, contextPath = "/" }: UseMemoryOptions): U
 
   const addDecision = useCallback(
     (decision: string) => {
-      updateContextMemory({
-        keyDecisions: [...(contextMemory?.keyDecisions ?? []), decision],
-      });
+      if (!sessionId) return;
+      // FIX B: leer del manager (no del state React, que puede ser null o
+      // desactualizado por timing con useEffect). integrateAIResponse hace
+      // read+append+write atómicamente desde la fuente de verdad (IDB+RAM).
+      memoryManager.integrateAIResponse(contextPath, sessionId, "", { addDecision: decision })
+        .then(() => memoryManager.getContextMemory(contextPath))
+        .then((updated) => { setContextMemory({ ...updated }); })
+        .catch((error) => {
+          console.error(`Failed to add decision for ${contextPath}:`, error);
+        });
     },
-    [contextMemory, updateContextMemory]
+    [sessionId, contextPath]
   );
 
   const addQuestion = useCallback(
     (question: string) => {
-      updateContextMemory({
-        openQuestions: [...(contextMemory?.openQuestions ?? []), question],
-      });
+      if (!sessionId) return;
+      // FIX B: idem addDecision, pero para openQuestions
+      memoryManager.integrateAIResponse(contextPath, sessionId, "", { addQuestion: question })
+        .then(() => memoryManager.getContextMemory(contextPath))
+        .then((updated) => { setContextMemory({ ...updated }); })
+        .catch((error) => {
+          console.error(`Failed to add question for ${contextPath}:`, error);
+        });
     },
-    [contextMemory, updateContextMemory]
+    [sessionId, contextPath]
   );
 
   return {
