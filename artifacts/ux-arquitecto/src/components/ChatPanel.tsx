@@ -66,12 +66,13 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useSession } from "@/hooks/useSession";
+import { useSessionSummary } from "@/hooks/useSessionSummary";
 import { streamMessageFromAI, ConversationMessage } from "@/lib/aiApi";
 import { useAI } from "@/hooks/useAI";
 import { StructuredMessage, sessionManager, AIContextSession, snapshotManager } from "@/core";
 import { webFilesystemProvider } from "@/core/WebFilesystemProvider";
 import { Theme } from "@/types/theme";
-import { AlertCircle, CheckCircle, XCircle, Copy, Check, Menu, X, Send, Plus, Paperclip, Package } from "lucide-react";
+import { AlertCircle, CheckCircle, XCircle, Copy, Check, Menu, X, Send, Plus, Paperclip, Package, Pencil } from "lucide-react";
 import { visualManager } from "@/core/visual";
 
 interface ChatPanelProps {
@@ -93,6 +94,8 @@ export function ChatPanel({ theme, sessionId, onSessionChange, onResourceChange,
   const [activeSessionId, setActiveSessionId] = useState<string | null>(sessionId);
   const { session, messages, isLoading: sessionLoading, error: sessionError, sendMessage: sendSessionMessage } = useSession(activeSessionId);
   const { sendMessage: sendAIMessage, isLoading: aiLoading, error: aiError, isConfigured, currentModel } = useAI();
+  // T-049: resumen manual de la sesión (editable inline, máx 15 palabras)
+  const summary = useSessionSummary(activeSessionId);
   const [input, setInput] = useState("");
   // T-009: id del mensaje cuyo botón "Copiado" se está mostrando. null = ninguno.
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
@@ -884,6 +887,102 @@ export function ChatPanel({ theme, sessionId, onSessionChange, onResourceChange,
           <h2 style={{ fontSize: "0.9rem", fontWeight: "600", color: theme.text, margin: 0 }}>
             Chat - {session.contextPath}
           </h2>
+
+          {/* T-049: pill de resumen manual — editable inline, máx 15 palabras */}
+          <div
+            data-testid="session-summary-pill"
+            onClick={() => { if (!summary.isEditing) summary.startEdit(); }}
+            title={summary.summary ? "Click para editar" : "Click para agregar resumen"}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "0.3rem",
+              marginTop: "0.25rem",
+              padding: "0.15rem 0.5rem",
+              borderRadius: "10px",
+              background: summary.summary ? `${theme.accent}14` : "transparent",
+              border: summary.summary ? `1px solid ${theme.accent}33` : `1px dashed ${theme.sub}44`,
+              cursor: summary.isEditing ? "default" : "pointer",
+              maxWidth: "100%",
+              minHeight: "1.1rem",
+            }}
+          >
+            {summary.isEditing ? (
+              <>
+                <input
+                  autoFocus
+                  type="text"
+                  value={summary.draft}
+                  onChange={(e) => summary.setDraft(e.target.value)}
+                  onKeyDown={summary.onKeyDown}
+                  onClick={(e) => e.stopPropagation()}
+                  placeholder="Resumen de la conversación..."
+                  maxLength={200}
+                  data-testid="session-summary-input"
+                  style={{
+                    border: "none",
+                    outline: "none",
+                    background: "transparent",
+                    color: theme.text,
+                    fontSize: "0.7rem",
+                    fontFamily: "inherit",
+                    flex: 1,
+                    minWidth: 0,
+                    padding: 0,
+                  }}
+                />
+                <span
+                  data-testid="session-summary-counter"
+                  style={{
+                    fontSize: "0.55rem",
+                    color: summary.overLimit ? "#ff6b6b" : theme.sub,
+                    opacity: 0.7,
+                    flexShrink: 0,
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {summary.wordCount}/{summary.maxWords}
+                </span>
+              </>
+            ) : summary.summary ? (
+              <>
+                <span
+                  style={{
+                    fontSize: "0.7rem",
+                    color: theme.text,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    flex: 1,
+                    minWidth: 0,
+                  }}
+                >
+                  {summary.summary}
+                </span>
+                <Pencil
+                  size={11}
+                  style={{ color: theme.sub, opacity: 0.6, flexShrink: 0 }}
+                />
+              </>
+            ) : (
+              <>
+                <Plus
+                  size={11}
+                  style={{ color: theme.sub, opacity: 0.5, flexShrink: 0 }}
+                />
+                <span
+                  style={{
+                    fontSize: "0.7rem",
+                    color: theme.sub,
+                    opacity: 0.6,
+                  }}
+                >
+                  Agregar resumen
+                </span>
+              </>
+            )}
+          </div>
+
           <p
             style={{
               fontSize: "0.7rem",
