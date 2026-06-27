@@ -486,8 +486,18 @@ export function ConversationPanel({ theme, sessionId, activeResource }: Conversa
           <div style={{
             padding: "0.6rem 0.8rem", borderRadius: "8px",
             background: `${theme.surface}cc`, color: theme.sub, fontSize: "0.82rem",
+            display: "flex", alignItems: "center", gap: "0.55rem",
           }}>
-            Procesando...
+            {/* T-044: spinner animado + texto */}
+            <span style={{
+              display: "inline-block", width: "12px", height: "12px",
+              border: `2px solid ${theme.accent}44`,
+              borderTopColor: theme.accent,
+              borderRadius: "50%",
+              animation: "arkmind-spin 0.8s linear infinite",
+              flexShrink: 0,
+            }} />
+            <span>Pensando…</span>
           </div>
         )}
 
@@ -558,6 +568,12 @@ export function ConversationPanel({ theme, sessionId, activeResource }: Conversa
           ↑
         </button>
       </div>
+      {/* T-044: estilos del spinner animado */}
+      <style>{`
+        @keyframes arkmind-spin {
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }
