@@ -18,6 +18,7 @@ import { StructuredMessage } from "@/core";
 import { ResourceNode, Transaction } from "@/core/types";
 import { Theme } from "@/types/theme";
 import { AlertCircle, CheckCircle, XCircle, Brain, FileCode } from "lucide-react";
+import { renderMarkdown } from "@/utils/markdown";
 import { ResourceContext } from "@/lib/aiApi";
 import { filesystemManager } from "@/core/filesystem";
 import { transactionManager, FileSystemOperation } from "@/core/transactions";
@@ -186,7 +187,8 @@ export function ConversationPanel({ theme, sessionId, activeResource }: Conversa
             whiteSpace: "pre-wrap",
             wordBreak: "break-word",
           }}>
-            {msg.content}
+            {/* T-045: renderizar markdown en mensajes */}
+            {renderMarkdown(msg.content)}
           </div>
         );
 
