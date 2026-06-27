@@ -10,7 +10,7 @@
  * Panel B: ResourceExplorer
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Theme } from "@/types/theme";
 import { getDefaultTheme } from "@/utils/colorSystem";
 import { ConfigMenu } from "@/components/ConfigMenu";
@@ -30,15 +30,40 @@ interface DualPanelLayoutProps {
 }
 
 export default function DualPanelLayout({ sessionId }: DualPanelLayoutProps) {
-  const [mode, setMode]             = useState<LayoutMode>("slide");
+  // T-043: restaurar UI prefs desde localStorage al boot.
+  // Solo restauramos en el render inicial; luego useEffect persiste los cambios.
+  const [mode, setMode]             = useState<LayoutMode>(() => {
+    const v = localStorage.getItem("arkmind.ui.mode");
+    return (v === "slide" || v === "split-v" || v === "split-h") ? v : "slide";
+  });
   const [sideOpen, setSideOpen]     = useState(false);
-  const [swapped, setSwapped]       = useState(false);
+  const [swapped, setSwapped]       = useState<boolean>(() => {
+    return localStorage.getItem("arkmind.ui.swapped") === "true";
+  });
   const [flipping, setFlipping]     = useState(false);
   const [configOpen, setConfigOpen] = useState(false);
   const [showSnapshots, setShowSnapshots] = useState(false);
   const [showHistory, setShowHistory]     = useState(false);
-  const [theme, setTheme]           = useState<Theme>(getDefaultTheme());
-  const [selectedResource, setSelectedResource] = useState<ResourceNode | null>(null);
+  const [theme, setTheme]           = useState<Theme>(() => {
+    const v = localStorage.getItem("arkmind.ui.theme");
+    return v ? JSON.parse(v) : getDefaultTheme();
+  });
+  const [selectedResource, setSelectedResource] = useState<ResourceNode | null>(() => {
+    const v = localStorage.getItem("arkmind.ui.selectedResource");
+    return v ? JSON.parse(v) : null;
+  });
+
+  // T-043: persistir UI prefs cuando cambian.
+  useEffect(() => { localStorage.setItem("arkmind.ui.mode", mode); }, [mode]);
+  useEffect(() => { localStorage.setItem("arkmind.ui.swapped", String(swapped)); }, [swapped]);
+  useEffect(() => { localStorage.setItem("arkmind.ui.theme", JSON.stringify(theme)); }, [theme]);
+  useEffect(() => {
+    if (selectedResource) {
+      localStorage.setItem("arkmind.ui.selectedResource", JSON.stringify(selectedResource));
+    } else {
+      localStorage.removeItem("arkmind.ui.selectedResource");
+    }
+  }, [selectedResource]);
 
   // Si hay un archivo seleccionado (no carpeta), mostramos el editor
   const showEditor = selectedResource !== null && selectedResource.type !== "folder";
