@@ -1,8 +1,8 @@
 {
   "project": "Arkmind",
   "schemaVersion": 2,
-  "lastUpdated": "2026-06-18T02:00:00Z",
-  "currentFocus": "T-009, T-010, T-011, T-012, T-013, T-014 todos cerrados. Plan completo de tarjetas del Bloque 1+2 listo.",
+  "lastUpdated": "2026-06-26T03:30:00Z",
+  "currentFocus": "T-040 modelo de coordinación activo. T-041..T-046 por arrancar.",
   "modules": {
     "snapshot-store": {
       "status": "done",
@@ -144,5 +144,42 @@
       "by": "Mavis@cloud",
       "action": "T-011 cerrado: menu hamburguesa con historial de sesiones"
     }
-  ]
+  ],
+  "activeAgents": [
+    {
+      "handle": "@mavis-cloud",
+      "specialties": [
+        "ui-chat",
+        "docs",
+        "core-bridge",
+        "coordination"
+      ],
+      "lastSeen": "2026-06-26"
+    },
+    {
+      "handle": "@mavis",
+      "specialties": [
+        "memory",
+        "audit",
+        "core",
+        "snapshots"
+      ],
+      "lastSeen": "2026-06-26"
+    },
+    {
+      "handle": "@replit-agent",
+      "specialties": [
+        "backend",
+        "tests",
+        "build-fixes"
+      ],
+      "lastSeen": "2026-06-26"
+    }
+  ],
+  "coordinationModel": {
+    "version": 1,
+    "doc": ".arkmind/TASKS-COORDINATION-MODEL.md",
+    "defaultCoordinator": "@mavis-cloud",
+    "lastUpdated": "2026-06-26T03:30:00Z"
+  }
 }
