@@ -1,8 +1,8 @@
 {
   "project": "Arkmind",
   "schemaVersion": 2,
-  "lastUpdated": "2026-06-26T03:30:00Z",
-  "currentFocus": "T-040 modelo de coordinación activo. T-041..T-046 por arrancar.",
+  "lastUpdated": "2026-06-27T07:05:00Z",
+  "currentFocus": "T-040..T-041 + T-043 + T-044 + T-045 + T-046 mergeables en rama ia/mavis-cloud/coord-model-quality-of-life. T-042 (command palette) queda pendiente para sesión futura.",
   "modules": {
     "snapshot-store": {
       "status": "done",
