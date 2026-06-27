@@ -22,6 +22,7 @@ import { HistoryPanel } from "@/components/HistoryPanel";
 import { SplitView } from "@/components/SplitView";
 import { SlideModeView } from "@/components/SlideModeView";
 import { ResourceNode } from "@/core/types";
+import { ConfirmDialog, ConfirmThemeProvider } from "@/hooks/useConfirm";
 
 type LayoutMode = "slide" | "split-v" | "split-h";
 
@@ -337,6 +338,11 @@ export default function DualPanelLayout({ sessionId }: DualPanelLayoutProps) {
         theme={theme}
         onThemeChange={setTheme}
       />
+
+      {/* T-046: modal de confirmación global (la activa la función confirm() desde cualquier panel) */}
+      <ConfirmThemeProvider theme={theme}>
+        <ConfirmDialog />
+      </ConfirmThemeProvider>
 
       <style>{`
         * { -webkit-tap-highlight-color: transparent; }
