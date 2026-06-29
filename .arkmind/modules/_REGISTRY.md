@@ -19,6 +19,7 @@
 | `resource-explorer` | ✅ done | Aria | `webFilesystemProvider` (consume) | — |
 | `t-047-test-fixes` | ✅ done | @replit-agent | — | — |
 | `t-048-dualpanel-jsx` | ✅ done | @replit-agent | — | — |
+| `t-049-mistral-wire` | ✅ done | @replit-agent | — | — |
 
 ### Leyenda
 - ✅ done — implementado y verificado

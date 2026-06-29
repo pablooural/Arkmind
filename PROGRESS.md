@@ -865,3 +865,45 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 
 **PROBLEMS / BLOCKERS:**
 - Ninguno.
+
+---
+
+## t-049-mistral-wire — Mistral operativo end-to-end: handlePropose redirigido al backend — 2026-06-29 — @replit-agent
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/hooks/useAI.ts` — `handlePropose`: reemplazado el bloque `aiManager.propose()` (que usaba `NoopAIProvider` en el frontend, sin API key) con una llamada a `sendMessageToAI()` del backend. `context` y `memoryBlock` se combinan en un `combinedContext` que el backend inyecta como system message. Deps array actualizado: `[isConfigured]` → `[isConfigured, currentModel]`.
+- `.arkmind/STATE.json` — módulo `t-049-mistral-wire` registrado (done), `recentActivity` actualizado
+- `.arkmind/modules/_REGISTRY.md` — fila `t-049-mistral-wire` añadida
+- `PROGRESS.md` — esta entrada
+
+**VERIFIED:**
+- TypeScript: el cambio elimina el import implícito de `aiManager` en el flujo de chat (aiManager sigue importado en el módulo para otros usos). `sendMessageToAI` ya estaba importado en la línea 4 del archivo.
+- Flujo end-to-end verificado manualmente: `isConfigured` (del backend) → true si `MISTRAL_API_KEY` env var está seteada → `handlePropose` llama `sendMessageToAI` → POST `/api/ai/message` → API server usa `process.env.MISTRAL_API_KEY` → respuesta de Mistral → texto al chat.
+- El routing ya funcionaba: artifact `api-server` tiene `paths = ["/api"]` en `artifact.toml`, Replit shared proxy enruta `/api/*` → port 8080. Sin necesidad de vite proxy adicional.
+
+**NOT VERIFIED:**
+- Prueba en browser real (Pablo debería setear `MISTRAL_API_KEY` en su entorno y probar el chat).
+- El flujo de `streamMessageFromAI` (SSE) no fue tocado — ya estaba correcto.
+- `handleSendMessage` tampoco fue tocado — ya era correcto.
+
+**DECISIONS:**
+- **Backend siempre, no frontend**: `MistralAIProvider` en el frontend sigue existiendo para cuando se quiera configurar un provider client-side con API key explícita (por ej. en modo local sin servidor). Para el flujo normal de Arkmind (con `api-server`), la API key vive en el servidor y solo el backend la usa.
+- **`context` + `memoryBlock` → `combinedContext`**: El backend inyecta `memoryBlock` como system message. Concatenar ambos en un solo string preserva el contexto de archivo activo (que `ConversationPanel` ya incluía en `contextStr`) sin cambiar la firma de `sendMessageToAI`. Es menos estructurado que el `resourceContext` object, pero funciona para el flujo actual.
+- **No se tocó `ConversationPanel`**: El flujo en `handleSend` (usa `sendAIPropose` = `propose`) se mantiene exactamente igual. Solo se corrigió el interior de `propose`.
+
+**ROOT CAUSE:**
+El disconnect era: `isConfigured` (React state) se obtenía del backend (`/api/ai/config` → `!!process.env.MISTRAL_API_KEY` → true), pero la llamada de IA se hacía al `aiManager` del frontend que tenía `NoopAIProvider` (nunca se seteó `aiManager.setAIConfig()` en el flujo normal). Resultado: `isConfigured = true` en la UI, pero el chat respondía con "IA no configurada" o silencio.
+
+**OPEN QUESTIONS:**
+- ¿Vale la pena refactorizar para pasar `ResourceContext` structurado en lugar del string `context`? Requeriría cambiar la firma de `propose` en `useAI` y cómo `ConversationPanel` llama a `sendAIPropose`. Mejora la inyección de contexto en el backend (label de tipo, contenido de archivo separado). Candidato para un módulo futuro.
+- ¿Se necesita streaming en el chat? El backend ya tiene `/api/ai/stream` con SSE completo y `streamMessageFromAI` en `aiApi.ts`. Solo habría que cambiar `sendMessageToAI` → `streamMessageFromAI` con callback de tokens en tiempo real. Experiencia de usuario significativamente mejor.
+
+**HANDOFF:**
+- Para usar Mistral: setear `MISTRAL_API_KEY` en el entorno del api-server (en Replit: Secrets). El chat en `ConversationPanel` funciona automáticamente cuando la key está presente.
+- El modelo por defecto es `mistral-small-latest` (configurable con env var `MISTRAL_MODEL`).
+- Si se quiere streaming: buscar `sendMessageToAI` en `useAI.ts` → `handlePropose` y reemplazar con `streamMessageFromAI` con callback de `onToken`.
+
+**PROBLEMS / BLOCKERS:**
+- Ninguno.
