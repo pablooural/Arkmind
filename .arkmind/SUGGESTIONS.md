@@ -1,6 +1,7 @@
 # 📬 Buzón de Sugerencias — Arkmind
 > **v a1.0** · 2026-06-07 · bumpear al tocar. (S001..S007 son las semillas).
 > **v a1.1** · 2026-06-08 · bumpear: agregar regla de acceso por alias (lectores designados: @pablo y @mavis-cloud).
+> **v a1.2** · 2026-06-29 · bumpear: 3 sugerencias nuevas (S008-S010) de @mavis, revisadas con @pablo el 2026-06-27.
 
 > **El lugar donde se archivan ideas de mejora al sistema de coordinación, al
 > proyecto, o features que no son urgentes.** No es un backlog automático.
@@ -214,17 +215,58 @@ aceptadas si las hay.
 
 ---
 
+---
+
+### S008 — Separar roles en `activeAgents` (coordinador ≠ ejecutor pesado) — 2026-06-29
+
+- **Autor:** @mavis
+- **Origen:** revisión del modelo de coordinación (T-040) tras verlo en main.
+- **Estado:** 🆕 nueva
+- **Propuesta:** `@mavis-cloud` figura en `activeAgents` con especialidades `["ui-chat", "docs", "core-bridge", "coordination"]` y al mismo tiempo ejecutó 8+ tarjetas UI pesadas (T-009, T-010, T-037, T-038, T-040, T-041, T-043, T-044, T-046). Eso contradice la regla "El coordinador NO ejecuta código". O bien (a) sacar `ui-chat` de `@mavis-cloud` y delegar a otra IA, o (b) agregar `maxExecutionTasksPerSession: N` para evitar sobrecarga, o (c) el coordinador solo ejecuta tareas de coordinación (docs, scaffolding).
+- **Por qué:** el riesgo es que el coordinador se quede sin tokens en una sesión y deje a los ejecutores sin verificar. Hoy pasa con `coord-model-quality-of-life` que tiene 8 tarjetas abiertas.
+- **Acción resultante (si se acepta):** actualizar `.arkmind/TASKS-COORDINATION-MODEL.md` (sección "Roles" o nueva sección "Límites del coordinador") + ajustar `STATE.json → activeAgents`. Si la opción (a) gana, agregar `@replit-agent` o `@aria` con especialidad `ui-chat` y reasignar T-041, T-043, T-044, T-046.
+- **Decidido por:** —
+- **Notas:** la opción (c) es la más simple. La (a) requiere más IAs activas, hoy no tenemos. La (b) es un parche pero no resuelve el fondo.
+
+---
+
+### S009 — Reemplazar el IDB mock liviano por `fake-indexeddb` — 2026-06-29
+
+- **Autor:** @mavis
+- **Origen:** revisión del setup de tests (T-047) tras ver `_idbMock.ts` y leer el comentario "Es un mock liviano (no usa fake-indexeddb). No cubre todos los casos de IDB. Si un test necesita features más complejos (cursors, índices múltiples), cambiar a fake-indexeddb."
+- **Estado:** 🆕 nueva
+- **Propuesta:** reemplazar `_idbMock.ts` por `fake-indexeddb` desde el día uno, antes de acumular tests con el mock liviano. El `snapshotStore` usa índices (`contextPath`, `timestamp`, `trigger`) y transacciones atómicas entre 2 object stores — si el mock no los soporta bien, los tests pasan pero el código falla en runtime (false positives).
+- **Por qué:** "más peligroso que no tener tests" es un test que miente. `fake-indexeddb` cuesta un poco más de setup pero refleja IDB real (cursors, índices, abort, versionado). Con 1 archivo de tests hoy es el momento ideal de migrar.
+- **Acción resultante (si se acepta):** (1) `pnpm add -D fake-indexeddb` en `artifacts/ux-arquitecto`. (2) reemplazar `_idbMock.ts` por `import 'fake-indexeddb/auto'` en `test-setup.ts`. (3) actualizar `snapshotStore.test.ts` para no usar más el mock manual. (4) correr `pnpm test` y verificar que los 14 tests pasan. Migración: 1-2 horas.
+- **Decidido por:** —
+- **Notas:** alternativa: dejar el mock liviano pero **documentar con tests específicos** qué features NO están cubiertas (cursors, índices compuestos, abort). Si un test futuro necesita algo no cubierto, ahí se cambia a fake-indexeddb. Esta opción evita migración pero requiere disciplina.
+
+---
+
+### S010 — Documentar la relación entre AXIOMS, CONVENTIONS y TASKS-COORDINATION-MODEL — 2026-06-29
+
+- **Autor:** @mavis
+- **Origen:** revisión del modelo de coordinación (T-040) detectó que hay 3 archivos de coordinación que pueden pisarse si no se aclara quién hace qué.
+- **Estado:** 🆕 nueva
+- **Propuesta:** agregar una sección "VI. Relación con otros docs" en `AXIOMS.md` que diga explícitamente: "AXIOMS = qué (reglas duras). CONVENTIONS = cómo del ejecutor (claim, commit, release). TASKS-COORDINATION-MODEL = cómo del coordinador (repartir, asignar, verificar)." Y agregar un link cruzado en cada uno de los otros 2.
+- **Por qué:** las IAs que llegan al sistema y leen solo uno de los 3 pueden implementar mal el flujo. Tener el "mapa de las 3 capas" en AXIOMS (que es el primero que se lee) previene esto.
+- **Acción resultante (si se acepta):** editar `AXIOMS.md` (agregar §VI), editar `CONVENTIONS.md` (link a TASKS-COORDINATION-MODEL), editar `TASKS-COORDINATION-MODEL.md` (link a los otros 2). Cambios chicos, 5 min.
+- **Decidido por:** —
+- **Notas:** low-risk, low-cost, alto-valor. Es el tipo de sugerencia que no necesita mucho debate.
+
+---
+
 ## 📊 Resumen
 
 | Estado | Cantidad |
 |---|---|
-| 🆕 nueva | 3 (S003, S004, S007) |
+| 🆕 nueva | 6 (S003, S004, S007, S008, S009, S010) |
 | 👀 en revisión | 0 |
 | ⏸ diferida | 2 (S005, S006) |
 | ✅ aceptada | 2 (S001, S002) |
 | ❌ rechazada | 0 |
 | 🔄 superseded | 0 |
-| **Total** | **7** |
+| **Total** | **10** |
 
 ---
 
