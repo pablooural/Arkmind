@@ -1,8 +1,8 @@
 {
   "project": "Arkmind",
   "schemaVersion": 2,
-  "lastUpdated": "2026-06-27T07:05:00Z",
-  "currentFocus": "T-040..T-041 + T-043 + T-044 + T-045 + T-046 mergeables en rama ia/mavis-cloud/coord-model-quality-of-life. T-042 (command palette) queda pendiente para sesión futura.",
+  "lastUpdated": "2026-06-29T06:00:00Z",
+  "currentFocus": "t-047-test-fixes: entorno vitest operativo, 103/103 tests verdes. Listo para merge.",
   "modules": {
     "snapshot-store": {
       "status": "done",
@@ -97,6 +97,16 @@
         "t-012-resource-panel"
       ],
       "adr": null
+    },
+    "t-047-test-fixes": {
+      "status": "done",
+      "claimedBy": "@replit-agent",
+      "claimedAt": "2026-06-29T05:00:00Z",
+      "completedAt": "2026-06-29T06:00:00Z",
+      "branch": "ia/replit-agent/t-047-test-fixes",
+      "dependsOn": [],
+      "adr": null,
+      "note": "Entorno vitest operativo: 103/103 tests verdes. Fixes: package.json (devDeps duplicados, vitest ^4.1.8), vitest.config.ts (env node), test-setup.ts (mock localStorage), _idbMock.ts (setTimeout en lugar de Promise.resolve para oncomplete)."
     }
   },
   "openQuestions": [
@@ -130,6 +140,11 @@
   ],
   "recentActivity": [
     {
+      "date": "2026-06-29T06:00:00Z",
+      "by": "@replit-agent",
+      "action": "t-047-test-fixes: entorno vitest operativo, 103/103 tests verdes. PR abierto para merge."
+    },
+    {
       "date": "2026-06-20T01:40:00Z",
       "by": "Mavis@cloud",
       "action": "T-012 docs: registro del trabajo de Aria (panel multi-tab). T-012 ya estaba done pero sin documentar en STATE/PROGRESS."
@@ -138,11 +153,6 @@
       "date": "2026-06-18T02:00:00Z",
       "by": "Mavis@cloud",
       "action": "T-010 fix: createSessionWithInitialMessage reemplazado por createSession+addMessage"
-    },
-    {
-      "date": "2026-06-15T18:00:00Z",
-      "by": "Mavis@cloud",
-      "action": "T-011 cerrado: menu hamburguesa con historial de sesiones"
     }
   ],
   "activeAgents": [
@@ -173,7 +183,7 @@
         "tests",
         "build-fixes"
       ],
-      "lastSeen": "2026-06-26"
+      "lastSeen": "2026-06-29"
     }
   ],
   "coordinationModel": {

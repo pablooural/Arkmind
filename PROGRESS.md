@@ -790,3 +790,45 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 
 **PROBLEMS / BLOCKERS:**
 - Ninguno.
+
+---
+
+## t-047-test-fixes — Entorno vitest operativo: 103/103 tests verdes — 2026-06-29 — @replit-agent
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/package.json` — fusión de dos bloques `devDependencies` duplicados (JSON inválido); vitest bumpeado a `^4.1.8` (misma versión del workspace raíz, evita fetch bloqueado); `@vitest/coverage-v8` y `happy-dom` removidos (innecesarios con env node)
+- `artifacts/ux-arquitecto/vitest.config.ts` — `environment: "happy-dom"` → `environment: "node"` (happy-dom bloqueado por el package-firewall de Replit al no estar en el store local; los tests no usan DOM real)
+- `artifacts/ux-arquitecto/src/test-setup.ts` — mock de `localStorage` para entorno node (el `afterEach(() => localStorage.clear())` fallaba sin DOM); se mantiene la semántica original
+- `artifacts/ux-arquitecto/src/core/__tests__/_idbMock.ts` — **bug fix**: `Promise.resolve().then(() => txn._complete())` reemplazado por `setTimeout(() => txn._complete(), 0)`; el mock disparaba `oncomplete` después de 1 microtask, antes de que `deleteSnapshot` pudiera registrar `tx.oncomplete` via `txToPromise` → 3 tests de delete/deleteByContext hacían timeout sistemáticamente
+- `.arkmind/STATE.json` — módulo `t-047-test-fixes` registrado (done), `recentActivity` actualizado, `lastSeen` de `@replit-agent` actualizado a 2026-06-29
+- `.arkmind/modules/_REGISTRY.md` — fila `t-047-test-fixes` añadida
+- `PROGRESS.md` — esta entrada
+
+**VERIFIED:**
+- `pnpm --filter @workspace/ux-arquitecto run test` → **103/103 tests pass, 6 archivos, 0 failures**
+- Suites: `snapshotStore.test.ts` (14), `workspace.test.ts`, `visual.test.ts`, `const.test.ts`, `colorConversion.test.ts`, `colorSystem.test.ts`
+- Los 3 tests que fallaban (`deleteSnapshot`, `no falla si el snapshot no existe`, `deleteByContext`) ahora pasan con la corrección del setTimeout
+
+**NOT VERIFIED:**
+- Coverage (`vitest run --coverage`) — requiere `@vitest/coverage-v8`; no instalado en esta sesión (bloqueado por package-firewall). Los tests básicos corren sin coverage
+- Runtime en browser (no aplica — tests de core puro)
+- `pnpm run typecheck` completo — no ejecutado; los archivos tocados son config/test, sin cambio de tipos
+
+**DECISIONS:**
+- **`environment: "node"` en lugar de `"happy-dom"`**: los 6 archivos de test cubren lógica pura (WorkspaceManager, SnapshotStore con IDB mock, color utils, consts). Ninguno usa DOM real. `happy-dom` solo se necesitaba para `localStorage.clear()` en el setup, que ahora se mockea manualmente. Cambio sin impacto en cobertura lógica.
+- **No se modificó `pnpm-workspace.yaml`** — es NO-GO-ZONE (requiere ADR). La solución tomada (vitest ^4.1.8 = versión ya en store) no requiere tocar el workspace config.
+- **No se modificó la implementación de `snapshotStore.ts`** — el bug estaba en el mock de test, no en el código productivo. `setTimeout(0)` en el mock replica mejor el comportamiento real de IDB (oncomplete se dispara cuando no hay requests pendientes, que en el mundo real también es asíncrono respecto al código que arma la transacción).
+
+**OPEN QUESTIONS:**
+- ¿Vale la pena re-agregar `@vitest/coverage-v8` cuando el package-firewall lo permita? Los umbrales (70% lines/functions, 60% branches) están definidos en `vitest.config.ts`. Por ahora no bloquea.
+- `useSession.event.test.tsx` está en el `exclude` del config (exclusión explícita pre-existente). ¿Está bloqueado por una dependencia faltante? No investigado — no era parte del scope.
+
+**HANDOFF:**
+- Los tests del core corren limpios. Cualquier IA que agregue nuevos tests puede hacerlo en `src/**/__tests__/**/*.test.{ts,tsx}` — el runner los detecta automáticamente.
+- El mock de IDB (`_idbMock.ts`) ya soporta el ciclo completo save/get/list/delete. Si se necesitan cursores o índices múltiples, el comentario en el archivo sugiere migrar a `fake-indexeddb`.
+- Si se quiere agregar coverage: instalar `@vitest/coverage-v8` a la misma versión que vitest (actualmente `^4.x`), no `^2.x`.
+
+**PROBLEMS / BLOCKERS:**
+- Ninguno.

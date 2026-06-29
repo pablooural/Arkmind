@@ -9,9 +9,24 @@
  * - mocks de fetch, navigator, etc.
  */
 
-import { afterEach } from "vitest";
+import { afterEach, beforeAll } from "vitest";
+
+// Mock localStorage for node environment
+beforeAll(() => {
+  if (typeof globalThis.localStorage === "undefined") {
+    const store: Record<string, string> = {};
+    globalThis.localStorage = {
+      getItem: (key: string) => store[key] ?? null,
+      setItem: (key: string, value: string) => { store[key] = value; },
+      removeItem: (key: string) => { delete store[key]; },
+      clear: () => { Object.keys(store).forEach(k => delete store[k]); },
+      key: (i: number) => Object.keys(store)[i] ?? null,
+      get length() { return Object.keys(store).length; },
+    } as Storage;
+  }
+});
 
 afterEach(() => {
   // Limpieza común: borrar localStorage entre tests.
-  localStorage.clear();
+  globalThis.localStorage?.clear();
 });

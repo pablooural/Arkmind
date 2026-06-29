@@ -77,7 +77,10 @@ export class IDBMock {
         if (this.oncomplete) this.oncomplete();
       },
     };
-    Promise.resolve().then(() => txn._complete());
+    // Use setTimeout(0) so _complete() fires after all pending microtasks
+    // (including all awaits inside the callers like deleteSnapshot). This
+    // ensures tx.oncomplete is registered via txToPromise before we call it.
+    setTimeout(() => txn._complete(), 0);
     return txn;
   }
 
