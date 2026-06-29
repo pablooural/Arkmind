@@ -114,11 +114,58 @@ Para que el coordinador sepa **quiénes están activas**:
 
 ## Reglas del ejecutor
 
-1. **Lee SOLO su tarjeta.** No relee PROGRESS, REGISTRY, STATE a menos que la tarjeta lo pida.
+1. **Lee SOLO su tarjeta.** No relea PROGRESS, REGISTRY, STATE a menos que la tarjeta lo pida.
 2. **Scope estricto.** Si toca un archivo fuera del alcance, frena y avisa al coordinador.
 3. **Commit message con convención** (`[ia:<handle>] [<scope>] <tipo>: <desc>`).
 4. **Wip commit si se acaban los tokens.** No dejar trabajo a medias sin commit.
 5. **Avisa al coordinador cuando mergea.**
+
+### Mutex (exclusión mutua) — T-055
+
+**El problema:** con N IAs en paralelo, dos pueden tomar la misma tarjeta.
+
+**La solución:** un lockfile (`.arkmind/CLAIMS.json`) + un script (`claim.sh`).
+
+**Flujo por tarjeta:**
+
+```bash
+# 1. ANTES de empezar: verificar que está libre
+./claim.sh check T-XXX
+# → "FREE: T-XXX está libre para tomar" o "BUSY: ..."
+
+# 2. Si está libre: clampear (esto crea la rama, hace commit vacío, pushea)
+./claim.sh claim T-XXX "desc corta" "ia/<handle>/t-XXX-slug" "archivo1,archivo2"
+
+# 3. Hacer el trabajo, commits, etc.
+
+# 4. Al terminar: liberar
+./claim.sh release T-XXX
+
+# 5. (Opcional) Push + PR como siempre
+```
+
+**Lo que hace `claim.sh claim`:**
+- Verifica que la tarjeta no esté en `CLAIMS.json:inProgress`.
+- Crea la rama `ia/<handle>/t-XXX-slug` desde `main` (si no existe).
+- Hace un commit vacío `[ia:<handle>] [mutex] T-XXX claim (wip sentinel)`.
+- **Push inmediato** de la rama a `origin` (clave: el push es temprano, no al final).
+- Agrega la entrada a `CLAIMS.json:inProgress` con timestamp.
+- Pushea la actualización de `CLAIMS.json`.
+
+**Resultado:** desde el momento del claim, las demás IAs:
+- Ven la rama en `origin` (pueden detectarla con `git fetch`).
+- Ven `CLAIMS.json:inProgress` con la tarjeta ocupada.
+- No pueden tomar la misma tarjeta.
+
+**Si una IA quiere verificar qué está libre, hace:**
+```bash
+./claim.sh list
+```
+
+**Si la IA se queda sin tokens a mitad:**
+- El coordinador puede hacer `./claim.sh abandon T-XXX "motivo"`.
+- La tarjeta vuelve al pool para que otra IA la tome.
+- El work-in-progress en la rama queda como referencia.
 
 ---
 
