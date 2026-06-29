@@ -87,31 +87,41 @@ export function useAI(): UseAIReturn {
             content: (m as { type: "text"; content: string }).content,
           }));
 
-        // 3. Llamar al manager unificado
-        const proposal = await aiManager.propose({
-          kind: "chat",
+        // 3. Llamar al backend (MISTRAL_API_KEY vive en el servidor, no en el frontend)
+        // Combinar context (contenido del archivo activo) y memoryBlock (memoria de sesión)
+        // como bloque de sistema para que el backend los inyecte correctamente.
+        const combinedContext = [context, memoryBlock].filter(Boolean).join("\n\n---\n\n") || null;
+        const rawResponse = await sendMessageToAI(
           message,
+          currentModel || undefined,
           history,
-          context,
-          memoryBlock,
-        });
+          null,
+          combinedContext,
+        );
 
-        if (proposal.kind === "noop") {
-          setError(proposal.summary);
+        if (!rawResponse) {
+          setError("No se obtuvo respuesta de la IA");
           return null;
         }
 
-        let aiResponse = "";
-        
-        if (proposal.kind === "explanation") {
-          aiResponse = proposal.text;
-        } else if (proposal.kind === "insight_proposal") {
-          aiResponse = `💡 **Propuesta de Insight:** ${proposal.content}`;
-          // Auto-cerrar el bucle: registrar en la memoria de la sesión
-          const { memoryManager } = await import("@/core");
-          memoryManager.addInsightToWorking(sessionId, proposal.content);
-        } else {
-          aiResponse = "Respuesta no disponible";
+        // Intentar parsear insight_proposal estructurado desde la respuesta
+        // (Mistral puede devolver JSON con {"kind":"insight_proposal",...})
+        let aiResponse = rawResponse;
+        if (rawResponse.includes('"kind"') && rawResponse.includes('"insight_proposal"')) {
+          try {
+            const jsonStart = rawResponse.indexOf('{');
+            const jsonEnd = rawResponse.lastIndexOf('}') + 1;
+            const parsed = JSON.parse(rawResponse.slice(jsonStart, jsonEnd)) as {
+              kind: string; content?: string; importance?: number;
+            };
+            if (parsed.kind === "insight_proposal" && parsed.content) {
+              aiResponse = `💡 **Propuesta de Insight:** ${parsed.content}`;
+              const { memoryManager } = await import("@/core");
+              memoryManager.addInsightToWorking(sessionId, parsed.content);
+            }
+          } catch {
+            // No era JSON válido — tratar como texto normal
+          }
         }
 
         // 4. Agregar respuesta a la sesión
@@ -131,7 +141,7 @@ export function useAI(): UseAIReturn {
         setIsLoading(false);
       }
     },
-    [isConfigured]
+    [isConfigured, currentModel]
   );
 
   const handleSendMessage = useCallback(

@@ -117,6 +117,16 @@
       "dependsOn": [],
       "adr": null,
       "note": "Fix JSX: eliminado </ShortcutsProvider> huérfano (línea ~353) en DualPanelLayout.tsx. Sin import ni apertura correspondiente, causaba error de compilación. Sin cambio de lógica."
+    },
+    "t-049-mistral-wire": {
+      "status": "done",
+      "claimedBy": "@replit-agent",
+      "claimedAt": "2026-06-29T08:00:00Z",
+      "completedAt": "2026-06-29T08:30:00Z",
+      "branch": "ia/replit-agent/t-049-mistral-wire",
+      "dependsOn": [],
+      "adr": null,
+      "note": "Conecta Mistral al flujo de chat: handlePropose en useAI.ts ahora llama sendMessageToAI() (backend) en lugar de aiManager.propose() (NoopAIProvider en frontend). MISTRAL_API_KEY permanece segura en el servidor."
     }
   },
   "openQuestions": [
@@ -149,6 +159,11 @@
     }
   ],
   "recentActivity": [
+    {
+      "date": "2026-06-29T08:30:00Z",
+      "by": "@replit-agent",
+      "action": "t-049-mistral-wire: handlePropose en useAI.ts redirigido a sendMessageToAI() (backend). Mistral operativo end-to-end sin exponer API key en frontend. PR abierto para merge."
+    },
     {
       "date": "2026-06-29T07:30:00Z",
       "by": "@replit-agent",
