@@ -832,3 +832,36 @@ encadenar. `spec-discrepancies` es independiente y puede ir en paralelo.
 
 **PROBLEMS / BLOCKERS:**
 - Ninguno.
+
+---
+
+## t-048-dualpanel-jsx — Fix JSX: eliminado closing tag huérfano en DualPanelLayout.tsx — 2026-06-29 — @replit-agent
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/src/pages/DualPanelLayout.tsx` — eliminado `</ShortcutsProvider>` huérfano en línea ~353; sin correspondiente apertura ni import, causaba error de compilación JSX ("adjacent JSX elements" / unmatched closing tag). El `return` queda con un único root `<div>` bien cerrado.
+- `.arkmind/STATE.json` — módulo `t-048-dualpanel-jsx` registrado (done), `recentActivity` actualizado
+- `.arkmind/modules/_REGISTRY.md` — fila `t-048-dualpanel-jsx` añadida
+- `PROGRESS.md` — esta entrada
+
+**VERIFIED:**
+- `pnpm exec tsc --noEmit` corre sin errores en `DualPanelLayout.tsx` ✅
+- Los errores de TypeScript restantes (`ChatPanel.tsx`, `HistoryPanel.tsx`, `SnapshotPanel.tsx`, `ResourceExplorer.tsx`, `session.ts`, `transactions.ts`, `useConfirm.tsx`, `useGlobalShortcuts.tsx`) son **pre-existentes** — ninguno fue introducido por este cambio
+- Code review independiente (architect subagent): **PASS** — fix mínimo, correcto, sin impacto en lógica
+
+**NOT VERIFIED:**
+- `pnpm run build` completo — bloquea en los errores TS pre-existentes (fuera de scope de esta tarea)
+
+**DECISIONS:**
+- **Eliminación vs. agregar apertura**: `ShortcutsProvider` no está importado en el archivo. Dado que el task dice "no cambies la lógica", se eliminó el closing tag huérfano en lugar de intentar envolver en un Fragment o añadir un import/apertura. Si en algún momento se quiere incorporar `ShortcutsProvider`, hay que importarlo y añadir la apertura alrededor del `return` completo (wrapping el `<div>` raíz).
+
+**OPEN QUESTIONS:**
+- ¿Estaba planificada la integración de `ShortcutsProvider`? El closing tag parece un merge parcial o un refactor abandonado. El hook `useGlobalShortcuts.tsx` existe en el proyecto, lo que sugiere que sí se planeó usarlo como Provider. Pablo debería decidir si activarlo.
+
+**HANDOFF:**
+- `DualPanelLayout.tsx` compila limpio (sin errores JSX). Los errores TS pre-existentes en otros archivos son candidatos para un próximo módulo de fix de tipado.
+- Si se quiere añadir `ShortcutsProvider`: importar desde el lugar correcto y envolver el `return` con `<ShortcutsProvider>...</ShortcutsProvider>`.
+
+**PROBLEMS / BLOCKERS:**
+- Ninguno.

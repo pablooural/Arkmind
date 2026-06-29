@@ -107,6 +107,16 @@
       "dependsOn": [],
       "adr": null,
       "note": "Entorno vitest operativo: 103/103 tests verdes. Fixes: package.json (devDeps duplicados, vitest ^4.1.8), vitest.config.ts (env node), test-setup.ts (mock localStorage), _idbMock.ts (setTimeout en lugar de Promise.resolve para oncomplete)."
+    },
+    "t-048-dualpanel-jsx": {
+      "status": "done",
+      "claimedBy": "@replit-agent",
+      "claimedAt": "2026-06-29T07:00:00Z",
+      "completedAt": "2026-06-29T07:30:00Z",
+      "branch": "ia/replit-agent/t-048-dualpanel-jsx",
+      "dependsOn": [],
+      "adr": null,
+      "note": "Fix JSX: eliminado </ShortcutsProvider> huérfano (línea ~353) en DualPanelLayout.tsx. Sin import ni apertura correspondiente, causaba error de compilación. Sin cambio de lógica."
     }
   },
   "openQuestions": [
@@ -139,6 +149,11 @@
     }
   ],
   "recentActivity": [
+    {
+      "date": "2026-06-29T07:30:00Z",
+      "by": "@replit-agent",
+      "action": "t-048-dualpanel-jsx: eliminado </ShortcutsProvider> huérfano en DualPanelLayout.tsx. Proyecto compila sin errores JSX. PR abierto para merge."
+    },
     {
       "date": "2026-06-29T06:00:00Z",
       "by": "@replit-agent",

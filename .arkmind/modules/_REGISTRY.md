@@ -18,6 +18,7 @@
 | `spec-discrepancies` | ✅ done | Aria | — | 0003-0004 (accepted); 0005 fuera de alcance |
 | `resource-explorer` | ✅ done | Aria | `webFilesystemProvider` (consume) | — |
 | `t-047-test-fixes` | ✅ done | @replit-agent | — | — |
+| `t-048-dualpanel-jsx` | ✅ done | @replit-agent | — | — |
 
 ### Leyenda
 - ✅ done — implementado y verificado
