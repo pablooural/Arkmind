@@ -38,6 +38,18 @@
       "startedAt": "2026-07-01T11:22:08Z",
       "status": "completed",
       "finishedAt": "2026-07-01T11:23:07Z"
+    },
+    {
+      "tarjeta": "T-054",
+      "handle": "@mavis-cloud",
+      "branch": "ia/mavis-cloud/t-054-bridge-tests",
+      "desc": "Tests de ia-context-bridge.ts (orquestador de contexto)",
+      "files": [
+        "artifacts/ux-arquitecto/src/core/ia-context-bridge.ts"
+      ],
+      "startedAt": "2026-07-01T11:23:09Z",
+      "status": "completed",
+      "finishedAt": "2026-07-01T11:24:20Z"
     }
   ],
   "abandoned": []
