@@ -1,0 +1,16 @@
+name = "arkmind-mistral-proxy"
+main = "src/index.ts"
+compatibility_date = "2024-09-01"
+
+# Variables planas (no secret) — el modelo se puede cambiar sin redeploy secret.
+# Para cambiar el modelo: editá esta línea y `wrangler deploy`.
+[vars]
+MISTRAL_MODEL = "mistral-small-latest"
+ALLOWED_ORIGIN = "*"
+
+# El secret MISTRAL_API_KEY se configura con:
+#   wrangler secret put MISTRAL_API_KEY
+# (pedirá el valor interactivamente; pegá la key ahí, NO en este archivo)
+
+[observability]
+enabled = true
