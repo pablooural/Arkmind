@@ -2,6 +2,7 @@
 > **v a1.0** · 2026-06-07 · bumpear al tocar. (S001..S007 son las semillas).
 > **v a1.1** · 2026-06-08 · bumpear: agregar regla de acceso por alias (lectores designados: @pablo y @mavis-cloud).
 > **v a1.2** · 2026-06-29 · bumpear: 3 sugerencias nuevas (S008-S010) de @mavis, revisadas con @pablo el 2026-06-27.
+> **v a1.3** · 2026-07-01 · bumpear: 1 sugerencia nueva (S011) de @aria, basada en conversación con @pablo del 2026-06-29 sobre visión backend.
 
 > **El lugar donde se archivan ideas de mejora al sistema de coordinación, al
 > proyecto, o features que no son urgentes.** No es un backlog automático.
@@ -256,17 +257,41 @@ aceptadas si las hay.
 
 ---
 
+### S011 — Migración gradual a Supabase + backend real (Auth, DB Postgres, Storage) — 2026-07-01
+
+- **Autor:** @aria (en conversación con @pablo, 2026-06-29)
+- **Origen:** Pablo quiere ver el prototipo correr "para ver cómo va quedando". El deploy actual es estático — la IA no responde, no hay persistencia cloud, no hay auth. La visión de Pablo es arrancar con backend real "fácil y gratuito" (Supabase free tier) y migrar "cuando sea tiempo" — sin apurarse.
+- **Estado:** 🆕 nueva
+- **Propuesta:** cuando llegue el momento, migrar gradualmente de IDB local a Supabase:
+  1. **Auth de usuarios** (Supabase Auth) — hoy todos ven el mismo workspace, mañana cada usuario el suyo
+  2. **DB Postgres** — reemplazar IndexedDB (`snapshotStore`, `memoryStore`, `sessionManager`) por tablas en Postgres
+  3. **Storage** — para los archivos capturados por snapshots (hoy son blobs locales en IDB)
+  4. **Realtime** — multi-device sync (subscriptions de Supabase en `useMemory`, `useSession`, etc.)
+- **Por qué:** lo gratis y fácil ya está estirado (deploy estático, IDB local, Mistral via proxy). Para que el prototipo sea "jugable" entre sesiones, dispositivos y usuarios, hace falta backend compartido. Supabase es el camino más corto: free tier generoso (500MB DB, 1GB storage, 50k auth users), SDK JS maduro, y mantiene SQL (que Pablo sabe, aunque sea básico).
+- **Acción resultante (si se acepta):** NO se hace nada ahora. Mavis@cloud (coordinadora) arma una mini-investigación cuando Pablo decida arrancar:
+  - Evaluar Supabase free tier y límites concretos
+  - Diseñar el mapeo IDB → Postgres (qué tablas, qué columnas)
+  - Diseñar cómo conviven ambos durante la migración (dual-write?)
+  - Proponer el orden de migración (Auth → DB → Storage → Realtime)
+- **Decidido por:** —
+- **Notas:** 
+  - **Mientras tanto (handoff inmediato)**: @aria arrancó con Mistral via Cloudflare Worker (1 archivo nuevo `cloudflare-worker/` en el repo) y 1 API gratuita de contexto (Wikipedia). Esos cambios son **independientes de S011** — viven en el frontend + Worker hasta que S011 se active.
+  - Pablo explícitamente dijo: "yo voy x lo facil y gratuito...ya luego migrare cuando sea tiempo...en supabase, xahora, mas que un par de sql no pego". S011 existe para no perder la visión, no para ejecutarse pronto.
+  - low-risk (no se hace nada), medium-cost (cuando se ejecute, será 2-3 sprints), high-value (desbloquea multi-user + multi-device + persistencia cloud).
+
+---
+
 ## 📊 Resumen
 
 | Estado | Cantidad |
 |---|---|
-| 🆕 nueva | 6 (S003, S004, S007, S008, S009, S010) |
+| 🆕 nueva | 7 (S003, S004, S007, S008, S009, S010, S011) |
 | 👀 en revisión | 0 |
 | ⏸ diferida | 2 (S005, S006) |
 | ✅ aceptada | 2 (S001, S002) |
 | ❌ rechazada | 0 |
 | 🔄 superseded | 0 |
-| **Total** | **10** |
+| **Total** | **11** |
 
 ---
 
