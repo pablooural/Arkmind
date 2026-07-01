@@ -295,4 +295,4 @@ aceptadas si las hay.
 
 ---
 
-*Última revisión por Mavis: 2026-06-04*
+*Última revisión por Mavis: 2026-06-04* (nota: 2026-07-01 @mavis-cloud sincronizó S008-S010 después de merge de S011, sin conflictos)
