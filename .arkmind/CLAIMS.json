@@ -1,7 +1,19 @@
 {
   "schemaVersion": 1,
   "description": "Lockfile compartido. Antes de empezar una tarjeta, una IA debe: (1) leer este archivo, (2) verificar que su tarjeta no está 'inProgress', (3) ejecutar .arkmind/claim.sh claim T-XXX 'desc' 'branch' 'files', (4) hacer el trabajo, (5) ejecutar .arkmind/claim.sh release T-XXX al terminar.",
-  "inProgress": [],
+  "inProgress": [
+    {
+      "tarjeta": "T-053",
+      "handle": "@mavis-cloud",
+      "branch": "ia/mavis-cloud/t-053-memory-tests",
+      "desc": "Tests de memory.ts (5 pasos del MemoryManager)",
+      "files": [
+        "artifacts/ux-arquitecto/src/core/memory.ts"
+      ],
+      "startedAt": "2026-07-01T11:22:08Z",
+      "status": "inProgress"
+    }
+  ],
   "completed": [
     {
       "tarjeta": "T-050",
