@@ -1,5 +1,5 @@
 # 📚 Aprendizados del equipo — Arkmind
-> **v a1.0** · 2026-06-07 · bumpear al tocar. (L-001..L-003 son los seeds, no cuentan como bump).
+> **v a1.1** · 2026-07-02 · bumpear al tocar. (L-001..L-003 son los seeds, no cuentan como bump). L-008..L-010: aprendizados del plan de tests del core, sistema mutex, vi.spyOn para singletons.
 
 > **Archivo append-only. Cualquier IA puede agregar el suyo.**
 >
@@ -267,3 +267,48 @@ grep -n 'startsWith("cogsnap' artifacts/ux-arquitecto/src/core/memory.ts
 **Nota:** el fix del PR (`ia/aria/fix-cogsnap-hydrate`) cambió `cogsnap:` por `cogsnap_` en `hydrate()`. Es seguro porque `generateId("cogsnap")` ya retornaba con guion bajo — no rompe ningún ID existente en IDB, solo arregla que se lean.
 
 **Conexión con L-005:** L-005 decía "verificar contra `origin/main` antes de reclamar". Esto es más chiquito pero complementario: "verificar consistencia interna del archivo antes de mergear". Mismo espíritu: 1 grep te ahorra horas de debugging futuro.
+
+
+## L-008 — `Promise.resolve().then` no espera a que la transacción IDB complete — 2026-07-02 — @mavis-cloud (coordinador tests)
+
+**Qué pasó:** Escribí `_idbMock.ts` con `Promise.resolve().then(() => txn._complete())` para simular que `tx.oncomplete` se dispara cuando la transacción termina. En mis primeros tests parecía funcionar. Subí el PR. Replit corre los tests, fallan 3: `deleteSnapshot`, `deleteByContext`, y cualquier test que dependa de `await txToPromise(tx)` dentro de un método que ya había iniciado otras operaciones en otra tx anterior.
+
+**Por qué importa:** `Promise.resolve().then(...)` se encola en el microtask queue AHORA. Pero el `tx.oncomplete` que setea el código real se ejecuta DESPUÉS de que `store.put/delete` se haya completado, lo cual ocurre también en el microtask queue. La diferencia de orden es por tick. En algunos tests parece que funciona, en otros hace timeout (~5s por defecto en vitest) y muere. **Los tests pasaban donde nada concurría, fallaban donde había otra tx antes en el mismo test.**
+
+**Solución (gracias a @replit-agent, PR #57):** cambiar `Promise.resolve().then(...)` por `setTimeout(0, ...)`. El setTimeout va al final del task queue, después de todos los microtasks. Así `tx.oncomplete` se dispara DESPUÉS de que cualquier promise pendiente de la tx se haya resuelto.
+
+**Lección para las próximas IAs:**
+- Si mockeás `tx.oncomplete` o cualquier callback async, **`setTimeout(0)` no `Promise.resolve().then()`**. El primero respeta el orden de eventos, el segundo se entromete.
+- O, mejor todavía, no mockees IDB a mano: usá `fake-indexeddb` (librería npm estándar). Pero para el proyecto chico, el mock casero es suficiente SI respetás este detalle.
+- Cuando un test pasa en tu máquina pero falla en CI, pensá en timing. Probablemente sea esto.
+
+**Conexión con L-001 (git operations):** mismo principio: las IAs que trabajamos en distintas zonas del repo podemos no enterarnos de un bug que la otra arregló. Mi `_idbMock` hubiera quedado mal para siempre si Replit no hubiera corrido los tests en su entorno. **Siempre corré tests en CI, no confíes solo en tu sandbox.**
+
+
+## L-009 — El sistema mutex funciona, pero solo si TODAS las IAs lo usan — 2026-07-02 — @mavis-cloud
+
+**Qué pasó:** T-055 mergeó el sistema mutex (`CLAIMS.json` + `claim.sh`). Pablo lo aprobó. Pero al revisar `git log` vi que @aria mergeó 2 PRs después (T-056 Worker, S011 docs) y **no actualizó `CLAIMS.json`**. Yo usé `claim.sh` para T-050, T-051, T-053, T-054, T-052. @replit-agent también lo usó (vi en `.arkmind/STATE.json` que registró `t-047-test-fixes`). @aria no.
+
+**Por qué importa:** el mutex no es solo un script, **es un acuerdo social**. Si una sola IA no lo usa, las otras pueden clamar tarjetas que ella está tocando. En el caso de T-056 y S011, @aria trabajó sola y no pisó a nadie, así que no hubo conflicto. Pero **es cuestión de tiempo**.
+
+**Acción para todos:**
+- Cada IA, cuando arranca una tarjeta nueva, corre `./claim.sh claim T-XXX "desc" "branch" "files"`. **Toma 5 segundos.**
+- Si ves conflictos en `CLAIMS.json` durante un rebase, **no los borres**: significa que dos IAs trabajaron en paralelo, hay que combinar.
+- Si tu tarjeta es chica (1 sesión) y no hay riesgo de pisar, podés no usar claim. Pero si vas a crear una rama nueva **siempre** usá claim, así las demás saben que esa rama está tomada.
+
+**Lección:** la infraestructura técnica existe, pero depende de la adopción voluntaria. La próxima IA que ve esto: si no usás claim.sh, animate. Si ves otra IA que no lo usa, dejale el comentario en su commit/PR — sin drama, solo "veníamos usando claim.sh, sumate". Es un pacto del equipo.
+
+
+## L-010 — Tests con módulos singleton requieren `vi.spyOn`, no reasignación directa — 2026-07-02 — @mavis-cloud
+
+**Qué pasó:** Para testear `transactionManager.executeTransaction`, necesito que `webFilesystemProvider.writeFile` devuelva `success: false` en un test y `success: true` en otro. Mi primer instinto fue `webFilesystemProvider.writeFile = vi.fn(...)`. **No funcionó** — el código ya capturó la referencia al método original en el closure del manager.
+
+**Solución:** usar `vi.spyOn(webFilesystemProvider, "writeFile").mockImplementation(...)`. Esto wrappea el método en el objeto, no lo reemplaza en una copia. El código que ya tenía la referencia sigue viendo `obj.writeFile(...)` que ahora apunta al spy.
+
+**Lección:**
+- Vitest/Jest con ESM y módulos singleton: **siempre `vi.spyOn(objeto, "método")`**.
+- Si necesitás volver al original entre tests, `vi.restoreAllMocks()` en `afterEach`.
+- Si necesitás resetear el call count, `.mockClear()`.
+- Si querés mockear la implementación (no solo el return), `.mockImplementation(fn)`.
+
+**Conexión con L-008:** misma idea: cuando algo no anda, no es magia, es el sandbox/ESM/singletons haciendo lo que hacen. La doc de vitest es clara sobre esto, pero yo no la leí antes de probar. Otra IA que mockee singletons: `vi.spyOn` primero.
