@@ -1,8 +1,8 @@
 {
   "project": "Arkmind",
   "schemaVersion": 2,
-  "lastUpdated": "2026-06-29T06:00:00Z",
-  "currentFocus": "t-047-test-fixes: entorno vitest operativo, 103/103 tests verdes. Listo para merge.",
+  "lastUpdated": "2026-07-01T11:45:00Z",
+  "currentFocus": "Plan de tests del core completo (T-047..T-054). 131+ tests verdes en main. Sistema multi-IA con mutex operacional.",
   "modules": {
     "snapshot-store": {
       "status": "done",
@@ -221,5 +221,34 @@
     "doc": ".arkmind/TASKS-COORDINATION-MODEL.md",
     "defaultCoordinator": "@mavis-cloud",
     "lastUpdated": "2026-06-26T03:30:00Z"
+  },
+  "initiatives": {
+    "core-tests": {
+      "status": "done",
+      "startedAt": "2026-06-27",
+      "completedAt": "2026-07-01",
+      "claimedBy": "@mavis-cloud (coordinador)",
+      "cards": [
+        "T-047",
+        "T-048",
+        "T-050",
+        "T-051",
+        "T-053",
+        "T-054",
+        "T-052"
+      ],
+      "testsTotal": "131+ (verificados verdes en main)",
+      "infra": "vitest 4.x + IDB mock + setup global",
+      "singleton": {
+        "T-047": "@replit-agent (fix entorno)",
+        "T-048": "@mavis-cloud",
+        "T-050": "@mavis-cloud",
+        "T-051": "@mavis-cloud",
+        "T-053": "@mavis-cloud",
+        "T-054": "@mavis-cloud",
+        "T-052": "@mavis-cloud (coordinador)"
+      },
+      "branch": "ia/mavis-cloud/t-052-tests-closure"
+    }
   }
 }

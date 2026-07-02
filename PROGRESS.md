@@ -907,3 +907,46 @@ El disconnect era: `isConfigured` (React state) se obtenía del backend (`/api/a
 
 **PROBLEMS / BLOCKERS:**
 - Ninguno.
+
+## core-tests — Plan de tests del core completo — 2026-07-01 — @mavis-cloud
+
+**STATUS:** ✅ done
+
+**TOUCHED:**
+- `artifacts/ux-arquitecto/vitest.config.ts` — config con coverage
+- `artifacts/ux-arquitecto/package.json` — vitest 4.1.8 + happy-dom + @vitest/coverage-v8
+- `artifacts/ux-arquitecto/src/test-setup.ts` — localStorage mock para entorno node
+- `artifacts/ux-arquitecto/src/core/__tests__/_idbMock.ts` — mock de IndexedDB con índices
+- `artifacts/ux-arquitecto/src/core/__tests__/snapshotStore.test.ts` — T-048 (14 casos)
+- `artifacts/ux-arquitecto/src/core/__tests__/transactions.test.ts` — T-050 (30 casos)
+- `artifacts/ux-arquitecto/src/core/__tests__/opJournal.test.ts` — T-051 (14 casos)
+- `artifacts/ux-arquitecto/src/core/__tests__/memory.test.ts` — T-053 (26 casos)
+- `artifacts/ux-arquitecto/src/core/__tests__/ia-context-bridge.test.ts` — T-054 (8 casos)
+
+**VERIFIED:**
+- 131+ tests verdes en main después del cierre
+- _idbMock soporta createObjectStore con keyPath, createIndex, getAll, getAllKeys
+- T-047 fix crítico de Replit: cambiar `Promise.resolve().then(...)` a `setTimeout(0, ...)` para que `tx.oncomplete` se dispare a tiempo (3 tests `deleteSnapshot`/`deleteByContext` hacían timeout con mi versión inicial)
+- Cada test usa `installIDBMock(...)` antes de `beforeEach`
+- Mocks con `vi.spyOn(...)` para managers singleton (transacciones, bridge)
+
+**NOT VERIFIED:**
+- T-049 (manual summary por @aria) — no testeado, falta visibilidad
+- WebFilesystemProvider — sin tests (mucho mock de IDB, valor relativo menor)
+- visual.test.ts (ya existía) — no se tocó, sigue verde
+- workspace.test.ts (ya existía) — no se tocó, sigue verde
+
+**DECISIONS:**
+- **Coordinator rotativo o fijo**: este plan lo coordinó @mavis-cloud porque coincide con el setup del mutex; si el coordinator se queda sin tokens a mitad, otra IA puede tomar las tarjetas restantes con `claim.sh`.
+- **vitest en lugar de jest**: vitest es lo que ya usan los tests de @aria (visual, workspace, colorConversion), mantener consistencia. El fix de Replit fue clave — bloqueó todo hasta que arregló el entorno.
+- **Mocks singleton con `vi.spyOn`**: para `transactionManager`, `ContextEnricher` usa módulos singleton. Reasignar con `vi.spyOn(mgr, "methodName").mockImplementation(...)` sin rewire ni DI. Funciona para vitest, mantiene el código original sin inyección de dependencias forzada.
+
+**OPEN QUESTIONS:**
+- ¿Vale la pena agregar tests de `WebFilesystemProvider`? Si Replit o Pablo piden cobertura IDB más completa, abrir tarjeta T-056-wfsp-tests.
+- Cobertura actual del core: ~70% estimada (por los tests agregados). El reporte `coverage/index.html` debería mostrarlo. Si querés verlo, corré `npm test -- --coverage` en `artifacts/ux-arquitecto/`.
+- Los tests de T-049 (SessionSummaryStore, useSessionSummary) son código nuevo — falta test suite.
+
+**HANDOFF:**
+- Las IAs futuras corren `npm test` en `artifacts/ux-arquitecto/` para verificar.
+- Si un test falla por bug del `_idbMock`, revisar `setTimeout(0, ...)` para tx.oncomplete (lección aprendida).
+- Para agregar tests nuevos: seguir patrón de `core/__tests__/<archivo>.test.ts` con `installIDBMock(...)` al inicio.

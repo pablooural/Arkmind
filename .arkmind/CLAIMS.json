@@ -1,19 +1,7 @@
 {
   "schemaVersion": 1,
   "description": "Lockfile compartido. Antes de empezar una tarjeta, una IA debe: (1) leer este archivo, (2) verificar que su tarjeta no está 'inProgress', (3) ejecutar .arkmind/claim.sh claim T-XXX 'desc' 'branch' 'files', (4) hacer el trabajo, (5) ejecutar .arkmind/claim.sh release T-XXX al terminar.",
-  "inProgress": [
-    {
-      "tarjeta": "T-053",
-      "handle": "@mavis-cloud",
-      "branch": "ia/mavis-cloud/t-053-memory-tests",
-      "desc": "Tests de memory.ts (5 pasos del MemoryManager)",
-      "files": [
-        "artifacts/ux-arquitecto/src/core/memory.ts"
-      ],
-      "startedAt": "2026-07-01T11:22:08Z",
-      "status": "inProgress"
-    }
-  ],
+  "inProgress": [],
   "completed": [
     {
       "tarjeta": "T-050",
@@ -38,6 +26,45 @@
       "startedAt": "2026-06-29T06:15:15Z",
       "status": "completed",
       "finishedAt": "2026-07-01T11:19:16Z"
+    },
+    {
+      "tarjeta": "T-053",
+      "handle": "@mavis-cloud",
+      "branch": "ia/mavis-cloud/t-053-memory-tests",
+      "desc": "Tests de memory.ts (5 pasos del MemoryManager)",
+      "files": [
+        "artifacts/ux-arquitecto/src/core/memory.ts"
+      ],
+      "startedAt": "2026-07-01T11:22:08Z",
+      "status": "completed",
+      "finishedAt": "2026-07-01T11:23:07Z"
+    },
+    {
+      "tarjeta": "T-054",
+      "handle": "@mavis-cloud",
+      "branch": "ia/mavis-cloud/t-054-bridge-tests",
+      "desc": "Tests de ia-context-bridge.ts (orquestador de contexto)",
+      "files": [
+        "artifacts/ux-arquitecto/src/core/ia-context-bridge.ts"
+      ],
+      "startedAt": "2026-07-01T11:23:09Z",
+      "status": "completed",
+      "finishedAt": "2026-07-01T11:24:20Z"
+    },
+    {
+      "tarjeta": "T-052",
+      "handle": "@mavis-cloud",
+      "branch": "ia/mavis-cloud/t-052-tests-closure",
+      "desc": "Cierre del plan de tests del core: actualizar STATE.json, PROGRESS, REGISTRY, LEARNINGS, verificar cobertura",
+      "files": [
+        "STATE.json",
+        "PROGRESS.md",
+        "REGISTRY.md",
+        "LEARNINGS.md"
+      ],
+      "startedAt": "2026-07-01T11:24:23Z",
+      "status": "completed",
+      "finishedAt": "2026-07-02T04:32:44Z"
     }
   ],
   "abandoned": []
