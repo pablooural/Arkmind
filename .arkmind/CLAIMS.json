@@ -50,6 +50,21 @@
       "startedAt": "2026-07-01T11:23:09Z",
       "status": "completed",
       "finishedAt": "2026-07-01T11:24:20Z"
+    },
+    {
+      "tarjeta": "T-052",
+      "handle": "@mavis-cloud",
+      "branch": "ia/mavis-cloud/t-052-tests-closure",
+      "desc": "Cierre del plan de tests del core: actualizar STATE.json, PROGRESS, REGISTRY, LEARNINGS, verificar cobertura",
+      "files": [
+        "STATE.json",
+        "PROGRESS.md",
+        "REGISTRY.md",
+        "LEARNINGS.md"
+      ],
+      "startedAt": "2026-07-01T11:24:23Z",
+      "status": "completed",
+      "finishedAt": "2026-07-02T04:32:44Z"
     }
   ],
   "abandoned": []
